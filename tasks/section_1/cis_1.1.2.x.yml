@@ -24,9 +24,7 @@
               ignore_errors: true
 
             - name: "Create filesystem on /tmp partition"
-              filesystem:
-                fstype: ext4
-                dev: /dev/sda2
+              command: mkfs.ext4 /dev/sda2
               when: parted_output.changed
 
             - name: "Add /tmp partition to /etc/fstab"
