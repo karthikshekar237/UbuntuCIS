@@ -7,84 +7,30 @@
     ubtu22cis_rule_1_1_8_3: true
 
   tasks:
-    - name: "1.1.8.1 | AUDIT | Ensure /dev/shm is a separate partition"
+    - name: "1.1.8.1 | Ensure nodev, nosuid, noexec options set on /dev/shm partition"
       block:
-        - name: "1.1.8.1 | AUDIT | Ensure /dev/shm is a separate partition | Check if /dev/shm is a separate partition"
-          command: mountpoint /dev/shm
-          register: dev_shm_mountpoint_check
+        - name: "1.1.8.1 | Ensure nodev option set on /dev/shm"
+          command: mount | grep '/dev/shm' | grep 'nodev' || mount -o remount,nodev /dev/shm
+          when: ubtu22cis_rule_1_1_8_1
           ignore_errors: true
 
-        - name: "1.1.8.1 | WARN | Ensure /dev/shm is a separate partition | warn_count"
-          set_fact:
-            warn_control_id: '1.1.8.1'
-            warn_message: "/dev/shm is not a separate partition. This is a manual task."
-      when:
-        - dev_shm_mountpoint_check.rc != 0
-        - ubtu22cis_rule_1_1_8_1
-      tags:
-        - level2-server
-        - level2-workstation
-        - automated
-        - audit
-        - rule_1.1.8.1
-        - dev_shm
+        - name: "1.1.8.2 | Ensure nosuid option set on /dev/shm"
+          command: mount | grep '/dev/shm' | grep 'nosuid' || mount -o remount,nosuid /dev/shm
+          when: ubtu22cis_rule_1_1_8_2
+          ignore_errors: true
 
-    - name: "1.1.8.2 | PATCH | Ensure nodev option set on /dev/shm partition"
-      set_fact:
-        dev_shm_partition_mount_options: "{{ dev_shm_partition_mount_options | default([]) + ['nodev'] }}"
-      changed_when: true
-      notify: Writing and remounting dev_shm
-      when:
-        - ubtu22cis_rule_1_1_8_1
-        - dev_shm_mountpoint_check.rc == 0
-      tags:
-        - level1-server
-        - level1-workstation
-        - automated
-        - patch
-        - rule_1.1.8.2
-        - dev_shm
+        - name: "1.1.8.3 | Ensure noexec option set on /dev/shm"
+          command: mount | grep '/dev/shm' | grep 'noexec' || mount -o remount,noexec /dev/shm
+          when: ubtu22cis_rule_1_1_8_3
+          ignore_errors: true
 
-    - name: "1.1.8.3 | PATCH | Ensure nosuid option set on /dev/shm partition"
-      set_fact:
-        dev_shm_partition_mount_options: "{{ dev_shm_partition_mount_options | default([]) + ['nosuid'] }}"
-      changed_when: true
-      notify: Writing and remounting dev_shm
-      when:
-        - ubtu22cis_rule_1_1_8_2
-        - dev_shm_mountpoint_check.rc == 0
-      tags:
-        - level1-server
-        - level1-workstation
-        - automated
-        - patch
-        - rule_1.1.8.3
-        - dev_shm
-
-    - name: "1.1.8.4 | PATCH | Ensure noexec option set on /dev/shm partition"
-      set_fact:
-        dev_shm_partition_mount_options: "{{ dev_shm_partition_mount_options | default([]) + ['noexec'] }}"
-      changed_when: true
-      notify: Writing and remounting dev_shm
-      when:
-        - ubtu22cis_rule_1_1_8_3
-        - dev_shm_mountpoint_check.rc == 0
-      tags:
-        - level1-server
-        - level1-workstation
-        - automated
-        - patch
-        - rule_1.1.8.4
-        - dev_shm
-
-  handlers:
-    - name: Writing and remounting dev_shm
-      block:
-        - name: Ensure /etc/fstab contains the /dev/shm entry
+        - name: "Ensure /dev/shm entry in /etc/fstab"
           lineinfile:
             path: /etc/fstab
             regexp: '^tmpfs\s+/dev/shm\s+tmpfs'
-            line: "tmpfs /dev/shm tmpfs defaults,{{ dev_shm_partition_mount_options | join(',') }} 0 0"
+            line: "tmpfs /dev/shm tmpfs defaults,nodev,nosuid,noexec 0 0"
             create: true
-        - name: Remount /dev/shm
-          command: mount -o remount /dev/shm
+
+  handlers:
+    - name: Remount /dev/shm
+      command: mount -o remount /dev/shm
