@@ -7,35 +7,48 @@
 
   tasks:
     - name: "1.1.10 | PATCH | Disable USB Storage | Set modprobe config"
-      ansible.builtin.lineinfile:
-        path: /etc/modprobe.d/usb_storage.conf
-        regexp: '^install usb-storage'
-        line: 'install usb-storage /bin/true'
-        create: true
+      block:
+        - name: "Set modprobe config to disable USB storage"
+          ansible.builtin.lineinfile:
+            path: /etc/modprobe.d/usb_storage.conf
+            regexp: '^install usb-storage'
+            line: 'install usb-storage /bin/true'
+            create: true
+
+        - name: "Update initramfs after setting modprobe config"
+          command: update-initramfs -u
+          when: ansible_os_family == "Debian"
+
+      when: ubtu22cis_rule_1_1_10 and not ubtu22cis_allow_usb_storage
 
     - name: "1.1.10 | PATCH | Disable USB Storage | Blacklist usb-storage"
-      ansible.builtin.lineinfile:
-        path: /etc/modprobe.d/blacklist.conf
-        line: 'blacklist usb-storage'
-        insertafter: EOF
+      block:
+        - name: "Blacklist usb-storage module"
+          ansible.builtin.lineinfile:
+            path: /etc/modprobe.d/blacklist.conf
+            line: 'blacklist usb-storage'
+            insertafter: EOF
+
+        - name: "Update initramfs after blacklisting usb-storage"
+          command: update-initramfs -u
+          when: ansible_os_family == "Debian"
+
+      when: ubtu22cis_rule_1_1_10 and not ubtu22cis_allow_usb_storage
 
     - name: "1.1.10 | PATCH | Disable USB Storage | Remove usb-storage module"
-      shell: |
-        if lsmod | grep -q usb_storage; then
-          modprobe -r usb-storage
-        fi
-      when: ansible_connection != 'docker'
+      block:
+        - name: "Remove usb-storage module"
+          shell: |
+            if lsmod | grep -q usb_storage; then
+              modprobe -r usb-storage
+            fi
+          when: ansible_connection != 'docker'
 
-  handlers:
-    - name: Update_Initramfs
-      command: update-initramfs -u
-      when: ansible_os_family == "Debian"
+        - name: "Update initramfs after removing usb-storage module"
+          command: update-initramfs -u
+          when: ansible_os_family == "Debian"
 
-  notify: Update_Initramfs
-
-  when:
-    - ubtu22cis_rule_1_1_10
-    - not ubtu22cis_allow_usb_storage
+      when: ubtu22cis_rule_1_1_10 and not ubtu22cis_allow_usb_storage
 
   tags:
     - level1-server
@@ -44,4 +57,3 @@
     - patch
     - rule_1.1.10
     - usb_storage
-
