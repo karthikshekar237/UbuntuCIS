@@ -1,53 +1,114 @@
 ---
-
-- name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition"
-  block:
-      - name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition | Absent"
-        ansible.builtin.debug:
-            msg: "Warning!! {{ required_mount }} doesn't exist. This is a manual task"
-
-      - name: "1.1.6.1 | WARN | Ensure /var/log/audit is a separate partition | warn_count"
-        ansible.builtin.import_tasks:
-            file: warning_facts.yml
+- hosts: localhost
+  become: true
   vars:
-      warn_control_id: '1.1.6.1'
-      required_mount: '/var/log/audit'
-  when:
-      - required_mount not in mount_names
-      - ubtu22cis_rule_1_1_6_1
-  tags:
-      - level2-server
-      - level2-workstation
-      - automated
-      - audit
-      - rule_1.1.6.1
-      - varlogaudit
+    ubtu22cis_rule_1_1_6_1: true
+    ubtu22cis_rule_1_1_6_2: true
+    ubtu22cis_rule_1_1_6_3: true
+    ubtu22cis_rule_1_1_6_4: true
+    mount_names: []
 
-- name: |
-    "1.1.6.2 | PATCH | Ensure /var/log/audit partition includes the noexec option"
-    "1.1.6.3 | PATCH | Ensure /var/log/audit partition includes the nodev option"
-    "1.1.6.4 | PATCH | Ensure /var/log/audit partition includes the nosuid option"
-  ansible.posix.mount:
-      path: /var/log/audit
-      src: "{{ item.device }}"
-      state: present
-      fstype: "{{ item.fstype }}"
-      opts: defaults,{% if ubtu22cis_rule_1_1_6_2 %}noexec,{% endif %}{% if ubtu22cis_rule_1_1_6_3 %}nodev,{% endif %}{% if ubtu22cis_rule_1_1_6_4 %}nosuid{% endif %}
-  notify: Remount var_log_audit
-  loop: "{{ ansible_facts.mounts }}"
-  loop_control:
-      label: "{{ item.device }}"
-  when:
-      - item.mount == "/var/log/audit"
-      - ubtu22cis_rule_1_1_6_2 or
-        ubtu22cis_rule_1_1_6_3 or
-        ubtu22cis_rule_1_1_6_4
-  tags:
-      - level1-server
-      - level1-workstation
-      - automated
-      - patch
-      - rule_1.1.6.2
-      - rule_1.1.6.3
-      - rule_1.1.6.4
-      - varlogaudit
+  tasks:
+    - name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition"
+      block:
+        - name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition | Check if /var/log/audit is already a separate partition"
+          command: mountpoint /var/log/audit
+          register: var_log_audit_mountpoint_check
+          ignore_errors: true
+
+        - name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition | Create /var/log/audit partition"
+          block:
+            - name: "Create /var/log/audit partition"
+              command: parted -s /dev/sda mkpart primary ext4 5GB 6GB
+              register: parted_output
+              ignore_errors: true
+
+            - name: "Create filesystem on /var/log/audit partition"
+              command: mkfs.ext4 /dev/sda6
+              when: parted_output.changed
+
+            - name: "Add /var/log/audit partition to /etc/fstab"
+              lineinfile:
+                path: /etc/fstab
+                line: '/dev/sda6  /var/log/audit  ext4  defaults,nosuid,noexec,nodev  0  2'
+              when: parted_output.changed
+
+            - name: "Mount /var/log/audit partition"
+              command: mount -a
+          when: var_log_audit_mountpoint_check.rc != 0
+          ignore_errors: true
+
+        - name: "1.1.6.1 | WARN | Ensure /var/log/audit is a separate partition | warn_count"
+          set_fact:
+            warn_control_id: '1.1.6.1'
+            warn_message: "The partition {{ required_mount }} is not found."
+      vars:
+        required_mount: '/var/log/audit'
+      when:
+        - required_mount not in mount_names
+        - ubtu22cis_rule_1_1_6_1
+      tags:
+        - level2-server
+        - level2-workstation
+        - automated
+        - audit
+        - rule_1.1.6.1
+        - varlogaudit
+
+    - name: "1.1.6.2 | PATCH | Ensure noexec option set on /var/log/audit partition"
+      set_fact:
+        var_log_audit_partition_mount_options: "{{ var_log_audit_partition_mount_options | default([]) + ['noexec'] }}"
+      changed_when: true
+      notify: Writing and remounting var_log_audit
+      vars:
+        required_mount: '/var/log/audit'
+      when:
+        - required_mount in mount_names
+        - ubtu22cis_rule_1_1_6_2
+      tags:
+        - level1-server
+        - level1-workstation
+        - automated
+        - patch
+        - rule_1.1.6.2
+        - varlogaudit
+
+    - name: "1.1.6.3 | PATCH | Ensure nodev option set on /var/log/audit partition"
+      set_fact:
+        var_log_audit_partition_mount_options: "{{ var_log_audit_partition_mount_options | default([]) + ['nodev'] }}"
+      changed_when: true
+      notify: Writing and remounting var_log_audit
+      vars:
+        required_mount: '/var/log/audit'
+      when:
+        - required_mount in mount_names
+        - ubtu22cis_rule_1_1_6_3
+      tags:
+        - level1-server
+        - level1-workstation
+        - automated
+        - patch
+        - rule_1.1.6.3
+        - varlogaudit
+
+    - name: "1.1.6.4 | PATCH | Ensure nosuid option set on /var/log/audit partition"
+      set_fact:
+        var_log_audit_partition_mount_options: "{{ var_log_audit_partition_mount_options | default([]) + ['nosuid'] }}"
+      changed_when: true
+      notify: Writing and remounting var_log_audit
+      vars:
+        required_mount: '/var/log/audit'
+      when:
+        - required_mount in mount_names
+        - ubtu22cis_rule_1_1_6_4
+      tags:
+        - level1-server
+        - level1-workstation
+        - automated
+        - patch
+        - rule_1.1.6.4
+        - varlogaudit
+
+  handlers:
+    - name: Writing and remounting var_log_audit
+      command: mount -o remount /var/log/audit
