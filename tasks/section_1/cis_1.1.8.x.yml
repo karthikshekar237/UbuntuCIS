@@ -10,21 +10,21 @@
     - name: "1.1.8.1 | Ensure nodev option set on /dev/shm"
       shell: |
         if ! mount | grep -q '/dev/shm.*nodev'; then
-          mount -o remount,nodev /dev/shm
+          mount -o remount,nodev,nosuid,noexec /dev/shm
         fi
       when: ubtu22cis_rule_1_1_8_1
 
     - name: "1.1.8.2 | Ensure nosuid option set on /dev/shm"
       shell: |
         if ! mount | grep -q '/dev/shm.*nosuid'; then
-          mount -o remount,nosuid /dev/shm
+          mount -o remount,nodev,nosuid,noexec /dev/shm
         fi
       when: ubtu22cis_rule_1_1_8_2
 
     - name: "1.1.8.3 | Ensure noexec option set on /dev/shm"
       shell: |
         if ! mount | grep -q '/dev/shm.*noexec'; then
-          mount -o remount,noexec /dev/shm
+          mount -o remount,nodev,nosuid,noexec /dev/shm
         fi
       when: ubtu22cis_rule_1_1_8_3
 
@@ -34,8 +34,3 @@
         regexp: '^tmpfs\s+/dev/shm\s+tmpfs'
         line: "tmpfs /dev/shm tmpfs defaults,nodev,nosuid,noexec 0 0"
         create: true
-
-  handlers:
-    - name: Remount /dev/shm
-      shell: mount -o remount /dev/shm
-
