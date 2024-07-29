@@ -1,61 +1,81 @@
 ---
+- hosts: localhost
+  become: true
+  vars:
+    ubtu22cis_rule_1_3_1: true
+    ubtu22cis_config_aide: true
+    ubtu22cis_rule_1_3_2: true
+    ubtu22cis_aide_init:
+      async: 600
+      poll: 5
+    ubtu22cis_aide_cron:
+      cron_file: 'aide'
+      cron_user: 'root'
+      aide_minute: '0'
+      aide_hour: '5'
+      aide_day: '*'
+      aide_month: '*'
+      aide_weekday: '*'
+      aide_job: '/usr/bin/aide --check'
 
-- name: "1.3.1 | PATCH | Ensure AIDE is installed"
-  block:
-      - name: "1.3.1 | PATCH | Ensure AIDE is installed"
-        ansible.builtin.package:
+  tasks:
+    - name: "1.3.1 | PATCH | Ensure AIDE is installed"
+      block:
+        - name: "1.3.1 | PATCH | Ensure AIDE and aide-common are installed"
+          ansible.builtin.package:
             name: ['aide', 'aide-common']
             state: present
             update_cache: true
-        register: ubtu22cis_rule_1_3_1_aide_added
-        when:
-            - "'aide' not in ansible_facts.packages or
-              'aide-common' not in ansible_facts.packages"
+          register: aide_installed
+          when: 
+            - ansible_facts.packages['aide'] is not defined or 
+              ansible_facts.packages['aide-common'] is not defined
 
-      - name: "1.3.1 | PATCH | Ensure AIDE is installed | Recapture packages"
-        ansible.builtin.package_facts:
+        - name: "1.3.1 | PATCH | Recapture package facts if AIDE was installed"
+          ansible.builtin.package_facts:
             manager: auto
-        when: ubtu22cis_rule_1_3_1_aide_added.skipped is not defined
+          when: aide_installed.changed
 
-      - name: "1.3.1 | PATCH | Ensure AIDE is installed | Configure AIDE"
-        ansible.builtin.shell: aideinit && mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
-        args:
+        - name: "1.3.1 | PATCH | Initialize AIDE"
+          ansible.builtin.shell: aideinit && mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+          args:
             creates: /var/lib/aide/aide.db
-        changed_when: false
-        failed_when: false
-        async: "{{ ubtu22cis_aide_init.async }}"
-        poll: "{{ ubtu22cis_aide_init.poll }}"
-        when: not ansible_check_mode
-  when:
-      - ubtu22cis_rule_1_3_1
-      - ubtu22cis_config_aide
-  tags:
-      - level1-server
-      - level1-workstation
-      - automated
-      - patch
-      - rule_1.3.1
-      - aide
+          changed_when: false
+          failed_when: false
+          async: "{{ ubtu22cis_aide_init.async }}"
+          poll: "{{ ubtu22cis_aide_init.poll }}"
+          when: not ansible_check_mode
 
-- name: "1.3.2 | PATCH | Ensure filesystem integrity is regularly checked"
-  ansible.builtin.cron:
-      name: Run AIDE integrity check
-      cron_file: "{{ ubtu22cis_aide_cron['cron_file'] }}"
-      user: "{{ ubtu22cis_aide_cron['cron_user'] }}"
-      minute: "{{ ubtu22cis_aide_cron['aide_minute'] | default('0') }}"
-      hour: "{{ ubtu22cis_aide_cron['aide_hour'] | default('5') }}"
-      day: "{{ ubtu22cis_aide_cron['aide_day'] | default('*') }}"
-      month: "{{ ubtu22cis_aide_cron['aide_month'] | default('*') }}"
-      weekday: "{{ ubtu22cis_aide_cron['aide_weekday'] | default('*') }}"
-      job: "{{ ubtu22cis_aide_cron['aide_job'] }}"
-  when:
-      - ubtu22cis_config_aide
-      - ubtu22cis_rule_1_3_2
-  tags:
-      - level1-server
-      - level1-workstation
-      - automated
-      - patch
-      - rule_1.3.2
-      - cron
-      - aide
+      when:
+        - ubtu22cis_rule_1_3_1
+        - ubtu22cis_config_aide
+      tags:
+        - level1-server
+        - level1-workstation
+        - automated
+        - patch
+        - rule_1.3.1
+        - aide
+
+    - name: "1.3.2 | PATCH | Ensure filesystem integrity is regularly checked"
+      ansible.builtin.cron:
+        name: "Run AIDE integrity check"
+        cron_file: "{{ ubtu22cis_aide_cron['cron_file'] }}"
+        user: "{{ ubtu22cis_aide_cron['cron_user'] }}"
+        minute: "{{ ubtu22cis_aide_cron['aide_minute'] | default('0') }}"
+        hour: "{{ ubtu22cis_aide_cron['aide_hour'] | default('5') }}"
+        day: "{{ ubtu22cis_aide_cron['aide_day'] | default('*') }}"
+        month: "{{ ubtu22cis_aide_cron['aide_month'] | default('*') }}"
+        weekday: "{{ ubtu22cis_aide_cron['aide_weekday'] | default('*') }}"
+        job: "{{ ubtu22cis_aide_cron['aide_job'] }}"
+      when:
+        - ubtu22cis_config_aide
+        - ubtu22cis_rule_1_3_2
+      tags:
+        - level1-server
+        - level1-workstation
+        - automated
+        - patch
+        - rule_1.3.2
+        - cron
+        - aide
