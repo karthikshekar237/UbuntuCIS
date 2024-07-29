@@ -11,9 +11,34 @@
   tasks:
     - name: "1.1.2.1 | AUDIT | Ensure /tmp is a separate partition"
       block:
-        - name: "1.1.2.1 | AUDIT | Ensure /tmp is a separate partition | Absent"
-          debug:
-            msg: "Warning!! {{ required_mount }} doesn't exist. This is a manual task"
+        - name: "1.1.2.1 | AUDIT | Ensure /tmp is a separate partition | Check if /tmp is already a separate partition"
+          command: mountpoint /tmp
+          register: tmp_mountpoint_check
+          ignore_errors: true
+
+        - name: "1.1.2.1 | AUDIT | Ensure /tmp is a separate partition | Create /tmp partition"
+          block:
+            - name: "Create /tmp partition"
+              command: parted /dev/sda mkpart primary ext4 1GB 2GB
+              register: parted_output
+              ignore_errors: true
+
+            - name: "Create filesystem on /tmp partition"
+              filesystem:
+                fstype: ext4
+                dev: /dev/sda2
+              when: parted_output.changed
+
+            - name: "Add /tmp partition to /etc/fstab"
+              lineinfile:
+                path: /etc/fstab
+                line: '/dev/sda2  /tmp  ext4  defaults,nosuid,nodev,noexec  0  2'
+              when: parted_output.changed
+
+            - name: "Mount /tmp partition"
+              command: mount -a
+          when: tmp_mountpoint_check.rc != 0
+          ignore_errors: true
 
         - name: "1.1.2.1 | WARN | Ensure /tmp is a separate partition | warn_count"
           set_fact:
