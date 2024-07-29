@@ -1,53 +1,114 @@
 ---
-
-- name: "1.1.5.1 | AUDIT | Ensure /var/log is a separate partition"
-  block:
-      - name: "1.1.5.1 | AUDIT | Ensure /var/log is a separate partition | Absent"
-        ansible.builtin.debug:
-            msg: "Warning!! {{ required_mount }} doesn't exist. This is a manual task"
-
-      - name: "1.1.5.1 | WARN | Ensure /var/log is a separate partition | warn_count"
-        ansible.builtin.import_tasks:
-            file: warning_facts.yml
+- hosts: localhost
+  become: true
   vars:
-      warn_control_id: '1.1.5.1'
-      required_mount: '/var/log'
-  when:
-      - required_mount not in mount_names
-      - ubtu22cis_rule_1_1_5_1
-  tags:
-      - level2-server
-      - level2-workstation
-      - automated
-      - audit
-      - rule_1.1.5.1
-      - varlog
+    ubtu22cis_rule_1_1_5_1: true
+    ubtu22cis_rule_1_1_5_2: true
+    ubtu22cis_rule_1_1_5_3: true
+    ubtu22cis_rule_1_1_5_4: true
+    mount_names: []
 
-- name: |
-    "1.1.5.2 | PATCH | Ensure /var/log partition includes the nodev option"
-    "1.1.5.3 | PATCH | Ensure /var/log partition includes the noexec option"
-    "1.1.5.4 | PATCH | Ensure /var/log partition includes the nosuid option"
-  ansible.posix.mount:
-      path: /var/log
-      src: "{{ item.device }}"
-      state: present
-      fstype: "{{ item.fstype }}"
-      opts: defaults,{% if ubtu22cis_rule_1_1_5_2 %}nodev,{% endif %}{% if ubtu22cis_rule_1_1_5_3 %}noexec,{% endif %}{% if ubtu22cis_rule_1_1_5_4 %}nosuid{% endif %}
-  notify: Remount var_log
-  loop: "{{ ansible_facts.mounts }}"
-  loop_control:
-      label: "{{ item.device }}"
-  when:
-      - item.mount == "/var/log"
-      - ubtu22cis_rule_1_1_5_2 or
-        ubtu22cis_rule_1_1_5_3 or
-        ubtu22cis_rule_1_1_5_4
-  tags:
-      - level1-server
-      - level1-workstation
-      - automated
-      - patch
-      - rule_1.1.5.2
-      - rule_1.1.5.3
-      - rule_1.1.5.4
-      - varlog
+  tasks:
+    - name: "1.1.5.1 | AUDIT | Ensure /var/log is a separate partition"
+      block:
+        - name: "1.1.5.1 | AUDIT | Ensure /var/log is a separate partition | Check if /var/log is already a separate partition"
+          command: mountpoint /var/log
+          register: var_log_mountpoint_check
+          ignore_errors: true
+
+        - name: "1.1.5.1 | AUDIT | Ensure /var/log is a separate partition | Create /var/log partition"
+          block:
+            - name: "Create /var/log partition"
+              command: parted -s /dev/sda mkpart primary ext4 4GB 5GB
+              register: parted_output
+              ignore_errors: true
+
+            - name: "Create filesystem on /var/log partition"
+              command: mkfs.ext4 /dev/sda5
+              when: parted_output.changed
+
+            - name: "Add /var/log partition to /etc/fstab"
+              lineinfile:
+                path: /etc/fstab
+                line: '/dev/sda5  /var/log  ext4  defaults,nosuid,noexec,nodev  0  2'
+              when: parted_output.changed
+
+            - name: "Mount /var/log partition"
+              command: mount -a
+          when: var_log_mountpoint_check.rc != 0
+          ignore_errors: true
+
+        - name: "1.1.5.1 | WARN | Ensure /var/log is a separate partition | warn_count"
+          set_fact:
+            warn_control_id: '1.1.5.1'
+            warn_message: "The partition {{ required_mount }} is not found."
+      vars:
+        required_mount: '/var/log'
+      when:
+        - required_mount not in mount_names
+        - ubtu22cis_rule_1_1_5_1
+      tags:
+        - level2-server
+        - level2-workstation
+        - automated
+        - audit
+        - rule_1.1.5.1
+        - varlog
+
+    - name: "1.1.5.2 | PATCH | Ensure nodev option set on /var/log partition"
+      set_fact:
+        var_log_partition_mount_options: "{{ var_log_partition_mount_options | default([]) + ['nodev'] }}"
+      changed_when: true
+      notify: Writing and remounting var_log
+      vars:
+        required_mount: '/var/log'
+      when:
+        - required_mount in mount_names
+        - ubtu22cis_rule_1_1_5_2
+      tags:
+        - level1-server
+        - level1-workstation
+        - automated
+        - patch
+        - rule_1.1.5.2
+        - varlog
+
+    - name: "1.1.5.3 | PATCH | Ensure noexec option set on /var/log partition"
+      set_fact:
+        var_log_partition_mount_options: "{{ var_log_partition_mount_options | default([]) + ['noexec'] }}"
+      changed_when: true
+      notify: Writing and remounting var_log
+      vars:
+        required_mount: '/var/log'
+      when:
+        - required_mount in mount_names
+        - ubtu22cis_rule_1_1_5_3
+      tags:
+        - level1-server
+        - level1-workstation
+        - automated
+        - patch
+        - rule_1.1.5.3
+        - varlog
+
+    - name: "1.1.5.4 | PATCH | Ensure nosuid option set on /var/log partition"
+      set_fact:
+        var_log_partition_mount_options: "{{ var_log_partition_mount_options | default([]) + ['nosuid'] }}"
+      changed_when: true
+      notify: Writing and remounting var_log
+      vars:
+        required_mount: '/var/log'
+      when:
+        - required_mount in mount_names
+        - ubtu22cis_rule_1_1_5_4
+      tags:
+        - level1-server
+        - level1-workstation
+        - automated
+        - patch
+        - rule_1.1.5.4
+        - varlog
+
+  handlers:
+    - name: Writing and remounting var_log
+      command: mount -o remount /var/log
