@@ -1,18 +1,36 @@
 ---
+- hosts: localhost
+  become: true
+  vars:
+    ubtu22cis_rule_1_1_9: true
+    ubtu22cis_allow_autofs: false
 
-- name: "1.1.9 | PATCH | Disable Automounting"
-  ansible.builtin.service:
-      name: autofs
-      state: stopped
-      enabled: false
-  when:
-      - ubtu22cis_rule_1_1_9
-      - ubtu22cis_autofs_service_status.stdout == "loaded"
-      - not ubtu22cis_allow_autofs
-  tags:
-      - level1-server
-      - level2-workstation
-      - automated
-      - patch
-      - rule_1.1.9
-      - automounting
+  tasks:
+    - name: "Check autofs service status"
+      shell: systemctl is-active autofs
+      register: autofs_service_status
+      ignore_errors: true
+
+    - name: "Check autofs service existence"
+      shell: systemctl is-enabled autofs
+      register: autofs_service_enabled
+      ignore_errors: true
+
+    - name: "1.1.9 | PATCH | Disable Automounting"
+      ansible.builtin.service:
+        name: autofs
+        state: stopped
+        enabled: false
+      when:
+        - ubtu22cis_rule_1_1_9
+        - autofs_service_status.stdout == "active"
+        - autofs_service_enabled.stdout == "enabled"
+        - not ubtu22cis_allow_autofs
+      tags:
+        - level1-server
+        - level2-workstation
+        - automated
+        - patch
+        - rule_1.1.9
+        - automounting
+
