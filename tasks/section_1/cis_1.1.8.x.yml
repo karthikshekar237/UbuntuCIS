@@ -7,30 +7,35 @@
     ubtu22cis_rule_1_1_8_3: true
 
   tasks:
-    - name: "1.1.8.1 | Ensure nodev, nosuid, noexec options set on /dev/shm partition"
-      block:
-        - name: "1.1.8.1 | Ensure nodev option set on /dev/shm"
-          command: mount | grep '/dev/shm' | grep 'nodev' || mount -o remount,nodev /dev/shm
-          when: ubtu22cis_rule_1_1_8_1
-          ignore_errors: true
+    - name: "1.1.8.1 | Ensure nodev option set on /dev/shm"
+      shell: |
+        if ! mount | grep -q '/dev/shm.*nodev'; then
+          mount -o remount,nodev /dev/shm
+        fi
+      when: ubtu22cis_rule_1_1_8_1
 
-        - name: "1.1.8.2 | Ensure nosuid option set on /dev/shm"
-          command: mount | grep '/dev/shm' | grep 'nosuid' || mount -o remount,nosuid /dev/shm
-          when: ubtu22cis_rule_1_1_8_2
-          ignore_errors: true
+    - name: "1.1.8.2 | Ensure nosuid option set on /dev/shm"
+      shell: |
+        if ! mount | grep -q '/dev/shm.*nosuid'; then
+          mount -o remount,nosuid /dev/shm
+        fi
+      when: ubtu22cis_rule_1_1_8_2
 
-        - name: "1.1.8.3 | Ensure noexec option set on /dev/shm"
-          command: mount | grep '/dev/shm' | grep 'noexec' || mount -o remount,noexec /dev/shm
-          when: ubtu22cis_rule_1_1_8_3
-          ignore_errors: true
+    - name: "1.1.8.3 | Ensure noexec option set on /dev/shm"
+      shell: |
+        if ! mount | grep -q '/dev/shm.*noexec'; then
+          mount -o remount,noexec /dev/shm
+        fi
+      when: ubtu22cis_rule_1_1_8_3
 
-        - name: "Ensure /dev/shm entry in /etc/fstab"
-          lineinfile:
-            path: /etc/fstab
-            regexp: '^tmpfs\s+/dev/shm\s+tmpfs'
-            line: "tmpfs /dev/shm tmpfs defaults,nodev,nosuid,noexec 0 0"
-            create: true
+    - name: "Ensure /dev/shm entry in /etc/fstab"
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^tmpfs\s+/dev/shm\s+tmpfs'
+        line: "tmpfs /dev/shm tmpfs defaults,nodev,nosuid,noexec 0 0"
+        create: true
 
   handlers:
     - name: Remount /dev/shm
-      command: mount -o remount /dev/shm
+      shell: mount -o remount /dev/shm
+
