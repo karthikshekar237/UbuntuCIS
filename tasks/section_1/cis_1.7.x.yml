@@ -15,7 +15,7 @@
       block:
         - name: "Ensure message of the day is configured properly | motd"
           ansible.builtin.template:
-            src: etc/motd.j2
+            src: ../../templates/motd.j2
             dest: /etc/motd
 
         - name: "Ensure message of the day is configured properly | disable dynamic_motd"
@@ -43,11 +43,12 @@
       block:
         - name: "Ensure local login warning banner is configured properly | issue"
           ansible.builtin.template:
-            src: etc/issue.j2
+            src: ../../templates/issue.j2
             dest: /etc/issue
 
         - name: "Ensure local login warning banner is kept on package upgrade | issue"
-          ansible.builtin.command: dpkg-divert --add /etc/issue
+          ansible.builtin.command:
+            cmd: dpkg-divert --add /etc/issue
       when:
         - ubtu22cis_rule_1_7_2
       tags:
@@ -62,11 +63,12 @@
       block:
         - name: "Ensure remote login warning banner is configured properly | issue.net"
           ansible.builtin.template:
-            src: etc/issue.net.j2
+            src: ../../templates/issue.net.j2
             dest: /etc/issue.net
 
         - name: "Ensure remote login warning banner is kept on package upgrade | issue.net"
-          ansible.builtin.command: dpkg-divert --add /etc/issue.net
+          ansible.builtin.command:
+            cmd: dpkg-divert --add /etc/issue.net
       when:
         - ubtu22cis_rule_1_7_3
       tags:
