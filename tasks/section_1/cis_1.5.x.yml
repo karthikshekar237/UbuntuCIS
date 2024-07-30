@@ -40,6 +40,10 @@
         - rule_1.5.1
         - aslr
 
+    - name: "Gather package facts"
+      ansible.builtin.package_facts:
+        manager: auto
+
     - name: "1.5.2 | PATCH | Ensure prelink is not installed"
       block:
         - name: "1.5.2 | PATCH | Ensure prelink is not installed | Restore binaries to normal"
