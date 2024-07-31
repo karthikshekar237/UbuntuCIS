@@ -6,6 +6,10 @@
     ubtu22cis_time_sync_tool: "chrony"  # Example value; can be chrony, ntp, or systemd-timesyncd
 
   tasks:
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: auto
+
     - name: "2.1.1.1 | PATCH | Ensure a single time synchronization daemon is in use"
       block:
         - name: "Ensure a single time synchronization daemon is in use | Pkg installed"
@@ -44,4 +48,3 @@
         - chrony
         - ntp
         - systemd-timesyncd
-
