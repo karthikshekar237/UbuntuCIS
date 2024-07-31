@@ -20,7 +20,7 @@
         - name: "Blacklist dccp"
           ansible.builtin.lineinfile:
             path: /etc/modprobe.d/blacklist.conf
-            regexp: "^(#)?blacklist dccp(\s|$)"
+            regexp: '^(#)?blacklist dccp(\s|$)'
             line: "blacklist dccp"
             create: true
             mode: '0600'
@@ -47,7 +47,7 @@
         - name: "Blacklist sctp"
           ansible.builtin.lineinfile:
             path: /etc/modprobe.d/blacklist.conf
-            regexp: "^(#)?blacklist sctp(\s|$)"
+            regexp: '^(#)?blacklist sctp(\s|$)'
             line: "blacklist sctp"
             create: true
             mode: '0600'
@@ -74,7 +74,7 @@
         - name: "Blacklist rds"
           ansible.builtin.lineinfile:
             path: /etc/modprobe.d/blacklist.conf
-            regexp: "^(#)?blacklist rds(\s|$)"
+            regexp: '^(#)?blacklist rds(\s|$)'
             line: "blacklist rds"
             create: true
             mode: '0600'
@@ -100,8 +100,8 @@
 
         - name: "Blacklist tipc"
           ansible.builtin.lineinfile:
-            path: /etc.modprobe.d/blacklist.conf
-            regexp: "^(#)?blacklist tipc(\s|$)"
+            path: /etc/modprobe.d/blacklist.conf
+            regexp: '^(#)?blacklist tipc(\s|$)'
             line: "blacklist tipc"
             create: true
             mode: '0600'
