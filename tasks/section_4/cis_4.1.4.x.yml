@@ -27,6 +27,11 @@
           register: audit_discovered_logfile
           changed_when: false
 
+        - name: "Ensure audit log file is found"
+          fail:
+            msg: "Audit log file not found"
+          when: audit_discovered_logfile.stdout == ""
+
         - name: "Get audit log file stats"
           stat:
             path: "{{ audit_discovered_logfile.stdout }}"
