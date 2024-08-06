@@ -20,3 +20,6 @@
 - name: Remount var_tmp
   ansible.builtin.command: mount -o remount /var/tmp
 
+- name: Remount var_log
+  ansible.builtin.command: mount -o remount /var/log
+
