@@ -1,0 +1,8 @@
+# vars file for UbuntuCIS
+---
+min_ansible_version: 2.10
+change_requires_reboot: false
+system_is_container: false
+warn_control_list: ""
+warn_count: 0
+

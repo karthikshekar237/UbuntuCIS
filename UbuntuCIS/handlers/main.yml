@@ -1,0 +1,22 @@
+---
+- name: Update_Initramfs
+  ansible.builtin.command: update-initramfs -u
+
+- name: Writing and remounting tmp
+  block:
+    - name: Write /etc/fstab
+      ansible.builtin.mount:
+        path: /tmp
+        fstype: tmpfs
+        opts: "{{ tmp_partition_mount_options | join(',') }}"
+        state: present
+
+    - name: Remount /tmp
+      ansible.builtin.command: mount -o remount /tmp
+
+- name: Remount var
+  ansible.builtin.command: mount -o remount /var
+
+- name: Remount var_tmp
+  ansible.builtin.command: mount -o remount /var/tmp
+
