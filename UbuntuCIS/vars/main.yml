@@ -5,4 +5,20 @@ change_requires_reboot: false
 system_is_container: false
 warn_control_list: ""
 warn_count: 0
+# vars/main.yml
+ubtu22cis_rule_4_1_1_1: true
+ubtu22cis_rule_4_1_1_2: true
+ubtu22cis_rule_4_1_1_3: true
+ubtu22cis_rule_4_1_1_4: true
+ubtu22cis_audit_back_log_limit: 8192
+ubtu22cis_rule_4_1_2_1: true
+ubtu22cis_rule_4_1_2_2: true
+ubtu22cis_rule_4_1_2_3: true
+ubtu22cis_max_log_file_size: 100  # Example value, adjust as needed
+ubtu22cis_auditd:
+  max_log_file_action: keep_logs
+  space_left_action: email
+  action_mail_acct: root
+  admin_space_left_action: halt
+
 

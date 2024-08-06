@@ -23,3 +23,208 @@
 - name: Remount var_log
   ansible.builtin.command: mount -o remount /var/log
 
+- name: Remount var_log_audit
+  ansible.builtin.command: mount -o remount /var/log/audit
+
+- name: Remount home
+  ansible.builtin.command: mount -o remount /home
+
+- name: Remount dev_shm
+  ansible.builtin.command: mount -o remount /dev/shm
+
+- name: Update_Initramfs
+  ansible.builtin.command: update-initramfs -u
+
+- name: Grub update
+  ansible.builtin.command: update-grub
+  become: true
+
+- name: Reload systemctl
+  ansible.builtin.command: sysctl -p
+  become: true
+
+- name: Grub update
+  ansible.builtin.command: update-grub
+  become: true
+
+- name: Update dconf
+  ansible.builtin.command: dconf update
+  become: true
+
+- name: Restart timeservice
+  ansible.builtin.systemd:
+    name: chrony
+    state: restarted
+    daemon_reload: yes
+
+- name: Restart timeservice
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: restarted
+    daemon_reload: yes
+
+- name: Restart timeservice
+  ansible.builtin.systemd:
+    name: ntp
+    state: restarted
+    daemon_reload: yes
+
+- name: Restart timeservice
+  ansible.builtin.systemd:
+    name: ntp
+    state: restarted
+    daemon_reload: yes
+
+- name: Restart exim4
+  ansible.builtin.systemd:
+    name: exim4
+    state: restarted
+    daemon_reload: yes
+
+- name: Restart postfix
+  ansible.builtin.systemd:
+    name: postfix
+    state: restarted
+    daemon_reload: yes
+
+- name: Flush ipv4 route table
+  ansible.builtin.shell: sysctl -w net.ipv4.route.flush=1
+
+- name: Flush ipv6 route table
+  ansible.builtin.shell: sysctl -w net.ipv6.route.flush=1
+
+- name: Flush ipv4 route table
+  ansible.builtin.shell: sysctl -w net.ipv4.route.flush=1
+
+- name: Flush ipv6 route table
+  ansible.builtin.shell: sysctl -w net.ipv6.route.flush=1
+
+- name: Grub update
+  ansible.builtin.shell: update-grub
+
+- name: Reload ufw
+  ansible.builtin.command: ufw reload
+  become: yes
+
+
+# handlers/main.yml
+
+- name: Ensure iptables directory exists
+  ansible.builtin.file:
+    path: /etc/iptables
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Iptables persistent
+  block:
+    - name: Ensure iptables directory exists
+      ansible.builtin.file:
+        path: /etc/iptables
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Save iptables rules
+      ansible.builtin.command: iptables-save > /etc/iptables/rules.v4
+      changed_when: false
+
+- name: Ip6tables persistent
+  block:
+    - name: Ensure ip6tables directory exists
+      ansible.builtin.file:
+        path: /etc/iptables
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Save ip6tables rules
+      ansible.builtin.command: ip6tables-save > /etc/iptables/rules.v6
+      changed_when: false
+
+- name: Reload ufw
+  ansible.builtin.service:
+    name: ufw
+    state: reloaded
+
+- name: Grub update
+  ansible.builtin.command: update-grub
+  become: yes
+
+- name: Flush ipv4 route table
+  ansible.builtin.command: sysctl -w net.ipv4.route.flush=1
+  become: yes
+
+- name: Flush ipv6 route table
+  ansible.builtin.command: sysctl -w net.ipv6.route.flush=1
+  become: yes
+
+- name: Restart timeservice
+  ansible.builtin.service:
+    name: chrony
+    state: restarted
+  become: yes
+
+- name: Grub update
+  ansible.builtin.command: update-grub
+  become: yes
+
+- name: Restart auditd
+  ansible.builtin.service:
+    name: auditd
+    state: restarted
+
+- name: Restart journald
+  ansible.builtin.systemd:
+      name: systemd-journald
+      state: restarted
+  tags:
+      - journald
+
+- name: Restart journald
+  ansible.builtin.systemd:
+      name: systemd-journald
+      state: restarted
+  tags:
+      - journald
+
+- name: Restart syslog service
+  ansible.builtin.systemd:
+      name: rsyslog
+      state: restarted
+  tags:
+      - rsyslog
+
+- name: Restart sshd
+  ansible.builtin.service:
+    name: sshd
+    state: restarted
+
+- name: Restart syslog service
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted
+
+- name: Restart journald
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted
+
+- name: Restart sshd
+  ansible.builtin.service:
+    name: sshd
+    state: restarted
+
+- name: Restart syslog service
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted
+
+- name: Restart journald
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted
+

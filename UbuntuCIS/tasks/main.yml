@@ -369,3 +369,4883 @@
     - rule_1.1.5.4
     - varlog
 
+- name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition"
+  block:
+    - name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition | Absent"
+      ansible.builtin.debug:
+        msg: "Warning!! {{ required_mount }} doesn't exist. This is a manual task"
+
+    - name: "1.1.6.1 | WARN | Ensure /var/log/audit is a separate partition | warn_count"
+      ansible.builtin.import_tasks:
+        file: warning_facts.yml
+  vars:
+    warn_control_id: '1.1.6.1'
+    required_mount: '/var/log/audit'
+  when:
+    - required_mount not in mount_names
+    - ubtu22cis_rule_1_1_6_1
+  tags:
+    - level2-server
+    - level2-workstation
+    - automated
+    - audit
+    - rule_1.1.6.1
+    - varlogaudit
+
+- name: |
+    "1.1.6.2 | PATCH | Ensure /var/log/audit partition includes the noexec option"
+    "1.1.6.3 | PATCH | Ensure /var/log/audit partition includes the nodev option"
+    "1.1.6.4 | PATCH | Ensure /var/log/audit partition includes the nosuid option"
+  ansible.posix.mount:
+    path: /var/log/audit
+    src: "{{ item.device }}"
+    state: present
+    fstype: "{{ item.fstype }}"
+    opts: defaults,{% if ubtu22cis_rule_1_1_6_2 %}noexec,{% endif %}{% if ubtu22cis_rule_1_1_6_3 %}nodev,{% endif %}{% if ubtu22cis_rule_1_1_6_4 %}nosuid{% endif %}
+  notify: Remount var_log_audit
+  loop: "{{ ansible_facts.mounts }}"
+  loop_control:
+    label: "{{ item.device }}"
+  when:
+    - item.mount == "/var/log/audit"
+    - ubtu22cis_rule_1_1_6_2 or
+      ubtu22cis_rule_1_1_6_3 or
+      ubtu22cis_rule_1_1_6_4
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.1.6.2
+    - rule_1.1.6.3
+    - rule_1.1.6.4
+    - varlogaudit
+
+- name: "1.1.7.1 | AUDIT | Ensure /home is a separate partition"
+  block:
+    - name: "1.1.7.1 | AUDIT | Ensure /home is a separate partition | Absent"
+      ansible.builtin.debug:
+        msg: "Warning!! {{ required_mount }} doesn't exist. This is a manual task"
+
+    - name: "1.1.7.1 | WARN | Ensure /home is a separate partition | warn_count"
+      ansible.builtin.import_tasks:
+        file: warning_facts.yml
+  vars:
+    warn_control_id: '1.1.7.1'
+    required_mount: '/home'
+  when:
+    - required_mount not in mount_names
+    - ubtu22cis_rule_1_1_7_1
+  tags:
+    - level2-server
+    - level2-workstation
+    - automated
+    - audit
+    - rule_1.1.7.1
+    - home
+
+- name: |
+    "1.1.7.2 | PATCH | Ensure /home partition includes the nodev option"
+    "1.1.7.3 | PATCH | Ensure /home partition includes the nosuid option"
+  ansible.posix.mount:
+    path: /home
+    src: "{{ item.device }}"
+    state: present
+    fstype: "{{ item.fstype }}"
+    opts: defaults,{% if ubtu22cis_rule_1_1_7_2 %}nodev,{% endif %}{% if ubtu22cis_rule_1_1_7_3 %}nosuid{% endif %}
+  notify: Remount home
+  loop: "{{ ansible_facts.mounts }}"
+  loop_control:
+    label: "{{ item.device }}"
+  when:
+    - item.mount == "/home"
+    - ubtu22cis_rule_1_1_7_2 or
+      ubtu22cis_rule_1_1_7_3
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.1.7.2
+    - rule_1.1.7.3
+    - home
+
+- name: |
+    "1.1.8.1 | PATCH | Ensure nodev option set on /dev/shm partition"
+    "1.1.8.2 | PATCH | Ensure nosuid option set on /dev/shm partition"
+    "1.1.8.3 | PATCH | Ensure noexec option set on /dev/shm partition"
+  ansible.posix.mount:
+    path: /dev/shm
+    src: /dev/shm
+    fstype: tmpfs
+    state: present
+    opts: "defaults,{% if ubtu22cis_rule_1_1_8_1 %}nodev,{% endif %}{% if ubtu22cis_rule_1_1_8_2 %}nosuid,{% endif %}{% if ubtu22cis_rule_1_1_8_3 %}noexec{% endif %}"
+  notify: Remount dev_shm
+  when:
+    - ubtu22cis_rule_1_1_8_1 or
+      ubtu22cis_rule_1_1_8_2 or
+      ubtu22cis_rule_1_1_8_3
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.1.8.1
+    - rule_1.1.8.2
+    - rule_1.1.8.3
+    - dev_shm
+
+- name: Check if autofs service exists
+  ansible.builtin.command: systemctl status autofs
+  register: autofs_service_status
+  ignore_errors: true
+  changed_when: false
+  failed_when: false
+
+- name: "1.1.9 | PATCH | Disable Automounting"
+  ansible.builtin.service:
+    name: autofs
+    state: stopped
+    enabled: false
+  when:
+    - ubtu22cis_rule_1_1_9
+    - '"Loaded: loaded" in autofs_service_status.stdout'
+    - not ubtu22cis_allow_autofs
+  tags:
+    - level1-server
+    - level2-workstation
+    - automated
+    - patch
+    - rule_1.1.9
+    - automounting
+
+- name: "1.1.10 | PATCH | Disable USB Storage"
+  block:
+    - name: "1.1.10 | PATCH | Disable USB Storage | Set modprobe config"
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/usb_storage.conf
+        regexp: '^install usb-storage'
+        line: 'install usb-storage /bin/true'
+        create: true
+
+    - name: "1.1.10 | PATCH | Disable USB Storage | Blacklist usb-storage"
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/blacklist.conf
+        line: 'blacklist usb-storage'
+        insertafter: EOF
+
+    - name: "1.1.10 | PATCH | Disable USB Storage | Remove usb-storage module"
+      community.general.modprobe:
+        name: usb-storage
+        state: absent
+      when: ansible_connection != 'docker'
+  notify: Update_Initramfs
+  when:
+    - ubtu22cis_rule_1_1_10
+    - not ubtu22cis_allow_usb_storage
+  tags:
+    - level1-server
+    - level2-workstation
+    - automated
+    - patch
+    - rule_1.1.10
+    - usb_storage
+
+- name: "1.2.1 | AUDIT | Ensure package manager repositories are configured"
+  block:
+    - name: "1.2.1 | AUDIT | Ensure package manager repositories are configured | Get repositories"
+      ansible.builtin.shell: apt-cache policy
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      register: ubtu22cis_1_2_1_apt_policy
+
+    - name: "1.2.1 | AUDIT | Ensure package manager repositories are configured | Message out repository configs"
+      ansible.builtin.debug:
+        msg:
+          - "Warning!! Below are the apt package repositories"
+          - "Please review to make sure they conform to your sites policies"
+          - "{{ ubtu22cis_1_2_1_apt_policy.stdout_lines }}"
+
+    - name: "1.2.1 | WARN | Ensure package manager repositories are configured | warn_count"
+      ansible.builtin.import_tasks:
+        file: warning_facts.yml
+  vars:
+    warn_control_id: '1.2.1'
+  when:
+    - ubtu22cis_rule_1_2_1
+  tags:
+    - level1-server
+    - level1-workstation
+    - manual
+    - audit
+    - rule_1.2.1
+    - apt
+
+- name: "1.2.2 | AUDIT | Ensure GPG keys are configured"
+  block:
+    - name: "1.2.2 | AUDIT | Ensure GPG keys are configured | Get apt gpg keys"
+      ansible.builtin.shell: apt-key list
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      register: ubtu22cis_1_2_2_apt_gpgkeys
+
+    - name: "1.2.2 | AUDIT | Ensure GPG keys are configured | Message out apt gpg keys"
+      ansible.builtin.debug:
+        msg:
+          - "Warning!! Below are the apt gpg keys configured"
+          - "Please review to make sure they are configured"
+          - "in accordance with site policy"
+          - "{{ ubtu22cis_1_2_2_apt_gpgkeys.stdout_lines }}"
+
+    - name: "1.2.2 | WARN | Ensure GPG keys are configured | warn_count"
+      ansible.builtin.import_tasks:
+        file: warning_facts.yml
+  vars:
+    warn_control_id: '1.2.2'
+  when:
+    - ubtu22cis_rule_1_2_2
+  tags:
+    - level1-server
+    - level1-workstation
+    - manual
+    - audit
+    - rule_1.2.2
+    - gpg
+    - keys
+
+- name: Gather package facts
+  ansible.builtin.package_facts:
+
+- name: "1.3.1 | PATCH | Ensure AIDE is installed"
+  block:
+    - name: "1.3.1 | PATCH | Ensure AIDE is installed"
+      ansible.builtin.package:
+        name: ['aide', 'aide-common']
+        state: present
+        update_cache: true
+      register: ubtu22cis_rule_1_3_1_aide_added
+      when:
+        - "'aide' not in ansible_facts.packages or 'aide-common' not in ansible_facts.packages"
+
+    - name: "1.3.1 | PATCH | Ensure AIDE is installed | Recapture packages"
+      ansible.builtin.package_facts:
+        manager: auto
+      when: ubtu22cis_rule_1_3_1_aide_added.changed
+
+    - name: "1.3.1 | PATCH | Ensure AIDE is installed | Configure AIDE"
+      ansible.builtin.shell: aideinit && mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+      args:
+        creates: /var/lib/aide/aide.db
+      changed_when: false
+      failed_when: false
+      async: "{{ ubtu22cis_aide_init.async }}"
+      poll: "{{ ubtu22cis_aide_init.poll }}"
+      when: not ansible_check_mode
+  when:
+    - ubtu22cis_rule_1_3_1
+    - ubtu22cis_config_aide
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.3.1
+    - aide
+
+- name: "1.3.2 | PATCH | Ensure filesystem integrity is regularly checked"
+  ansible.builtin.cron:
+    name: Run AIDE integrity check
+    cron_file: "{{ ubtu22cis_aide_cron['cron_file'] }}"
+    user: "{{ ubtu22cis_aide_cron['cron_user'] }}"
+    minute: "{{ ubtu22cis_aide_cron['aide_minute'] | default('0') }}"
+    hour: "{{ ubtu22cis_aide_cron['aide_hour'] | default('5') }}"
+    day: "{{ ubtu22cis_aide_cron['aide_day'] | default('*') }}"
+    month: "{{ ubtu22cis_aide_cron['aide_month'] | default('*') }}"
+    weekday: "{{ ubtu22cis_aide_cron['aide_weekday'] | default('*') }}"
+    job: "{{ ubtu22cis_aide_cron['aide_job'] }}"
+  when:
+    - ubtu22cis_config_aide
+    - ubtu22cis_rule_1_3_2
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.3.2
+    - cron
+    - aide
+
+- name: "1.4.1 | PATCH | Ensure bootloader password is set"
+  block:
+    - name: "1.4.1 | PATCH | Ensure bootloader password is set"
+      ansible.builtin.template:
+        src: etc/grub.d/00_user.j2
+        dest: "{{ ubtu22cis_grub_user_file }}"
+        owner: root
+        group: root
+        mode: '0755'
+      notify: Grub update
+
+    - name: "1.4.1 | PATCH | Ensure bootloader password is set | allow unrestricted boot"
+      ansible.builtin.lineinfile:
+        path: "/etc/grub.d/10_linux"
+        regexp: '(^CLASS="--class gnu-linux --class gnu --class os).*"$'
+        line: '\g<1> --unrestricted"'
+        backrefs: true
+      notify: Grub update
+      when: not ubtu22cis_ask_passwd_to_boot
+  when:
+    - ubtu22cis_set_boot_pass
+    - ubtu22cis_rule_1_4_1
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.4.1
+    - grub
+
+- name: "1.4.2 | PATCH | Ensure permissions on bootloader config are configured"
+  block:
+    - name: "1.4.2 | AUDIT | Ensure permissions on bootloader config are configured | Check for Grub file"
+      ansible.builtin.stat:
+        path: "{{ ubtu22cis_grub_file }}"
+      check_mode: false
+      register: ubtu22cis_1_4_2_grub_cfg_status
+
+    - name: "1.4.2 | PATCH | Ensure permissions on bootloader config are configured | Set permissions"
+      ansible.builtin.file:
+        path: "{{ ubtu22cis_grub_file }}"
+        owner: root
+        group: root
+        mode: '0400'
+      when:
+        - ubtu22cis_1_4_2_grub_cfg_status.stat.exists
+  when:
+    - ubtu22cis_rule_1_4_2
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.4.2
+    - grub
+
+- name: "1.4.3 | PATCH | Ensure authentication required for single user mode"
+  ansible.builtin.user:
+    name: "{{ ubtu22cis_grub_user }}"
+    password: "{{ ubtu22cis_grub_user_passwd }}"
+  when:
+    - ubtu22cis_rule_1_4_3
+    - ubtu22cis_set_grub_user_pass
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.4.3
+    - passwd
+    - grub
+
+- name: "1.5.1 | PATCH | Ensure address space layout randomization (ASLR) is enabled | Set active kernel parameter"
+  ansible.posix.sysctl:
+    name: kernel.randomize_va_space
+    value: '2'
+    state: present
+    sysctl_file: "{{ ubtu22cis_sysctl_kernel_conf }}"
+    reload: true
+    sysctl_set: true
+    ignoreerrors: true
+  when:
+    - ubtu22cis_rule_1_5_1
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.5.1
+    - aslr
+
+- name: "1.5.2 | PATCH | Ensure prelink is not installed"
+  block:
+    - name: "1.5.2 | PATCH | Ensure prelink is not installed | Restore binaries to normal"
+      ansible.builtin.shell: prelink -ua
+      changed_when: false
+      failed_when: false
+
+    - name: "1.5.2 | PATCH | Ensure prelink is not installed| Remove prelink package"
+      ansible.builtin.package:
+        name: prelink
+        state: absent
+        purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+    - ubtu22cis_rule_1_5_2
+    - "'prelink' in ansible_facts.packages"
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.5.2
+    - prelink
+
+- name: "1.5.3 | PATCH | Ensure Automatic Error Reporting is not enabled"
+  block:
+    - name: "1.5.3 | PATCH | Ensure Automatic Error Reporting is not enabled | disable"
+      ansible.builtin.lineinfile:
+        path: /etc/default/apport
+        regexp: ^enabled
+        line: enabled=0
+        create: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: "1.5.3 | PATCH | Ensure Automatic Error Reporting is not enabled | remove package"
+      ansible.builtin.package:
+        name: apport
+        state: absent
+        purge: "{{ ubtu22cis_purge_apt }}"
+      when:
+        - "'apport' in ansible_facts.packages"
+  when:
+    - ubtu22cis_rule_1_5_3
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.5.3
+    - apport
+
+- name: "1.5.4 | PATCH | Ensure core dumps are restricted"
+  block:
+    - name: "1.5.4 | PATCH | Ensure core dumps are restricted | kernel sysctl"
+      ansible.posix.sysctl:
+        name: fs.suid_dumpable
+        value: '0'
+        state: present
+        sysctl_file: "{{ ubtu22cis_sysctl_kernel_conf }}"
+        reload: true
+        sysctl_set: true
+        ignoreerrors: true
+
+    - name: "1.5.4 | PATCH | Ensure core dumps are restricted | security limits"
+      ansible.builtin.lineinfile:
+        path: /etc/security/limits.d/99_zero_core.conf
+        regexp: '^\* hard core'
+        line: '* hard core 0'
+        create: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: "1.5.4 | PATCH | Ensure core dumps are restricted | sysctl.conf"
+      ansible.builtin.lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^fs.suid_dumpable'
+        line: fs.suid_dumpable=0
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload systemctl
+
+    - name: "1.5.4 | PATCH | Ensure core dumps are restricted | coredump.conf"
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/coredump.conf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        create: true
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - { regexp: '^Storage', line: 'Storage=none' }
+        - { regexp: '^ProcessSizeMax', line: 'ProcessSizeMax=0' }
+      when: "'systemd-coredump' in ansible_facts.packages"
+  when:
+    - ubtu22cis_rule_1_5_4
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.5.4
+    - coredump
+
+- name: "1.6.1.1 | PATCH | Ensure AppArmor is installed"
+  ansible.builtin.package:
+    name: ['apparmor', 'apparmor-utils']
+    state: present
+  when:
+    - ubtu22cis_rule_1_6_1_1
+    - "'apparmor' not in ansible_facts.packages or 'apparmor-utils' not in ansible_facts.packages"
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.6.1.1
+    - apparmor
+
+- name: "1.6.1.2 | PATCH | Ensure AppArmor is enabled in the bootloader configuration"
+  block:
+    - name: "1.6.1.2 | AUDIT | Ensure AppArmor is enabled in the bootloader configuration | Get current settings"
+      ansible.builtin.shell: grep "GRUB_CMDLINE_LINUX=" /etc/default/grub | cut -f2 -d'"'
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      register: ubtu22cis_1_6_1_2_cmdline_settings
+
+    - name: "1.6.1.2 | PATCH | Ensure AppArmor is enabled in the bootloader configuration | Set apparmor settings if none exist"
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: ^(GRUB_CMDLINE_LINUX=")(|apparmor=\d\s)(.*\w+")
+        line: \1apparmor=1 \3
+        backrefs: true
+      notify: Grub update
+      when: ubtu22cis_1_6_1_2_cmdline_settings.stdout is not search('apparmor=')
+
+    - name: "1.6.1.2 | PATCH | Ensure AppArmor is enabled in the bootloader configuration | Set security settings if none exist"
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: ^(GRUB_CMDLINE_LINUX=")(|security=\w+\s)(.*\w+")
+        line: \1security=apparmor \3
+        backrefs: true
+      notify: Grub update
+      when: ubtu22cis_1_6_1_2_cmdline_settings.stdout is not search('security=')
+
+    - name: "1.6.1.2 | PATCH | Ensure AppArmor is enabled in the bootloader configuration | Set apparmor settings if none exist"
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX='
+        line: 'GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor {{ ubtu22cis_1_6_1_2_cmdline_settings.stdout }}"'
+        insertafter: '^GRUB_'
+      when:
+        - "'apparmor' not in ubtu22cis_1_6_1_2_cmdline_settings.stdout"
+        - "'security' not in ubtu22cis_1_6_1_2_cmdline_settings.stdout"
+      notify: Grub update
+
+    - name: "1.6.1.2 | PATCH | Ensure AppArmor is enabled in the bootloader configuration | Replace apparmor settings when exists"
+      ansible.builtin.replace:
+        path: /etc/default/grub
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      loop:
+        - { regexp: 'apparmor=\w+', replace: 'apparmor=1' }
+        - { regexp: 'security=\w+', replace: 'security=apparmor' }
+      when:
+        - "'apparmor' in ubtu22cis_1_6_1_2_cmdline_settings.stdout or 'security' in ubtu22cis_1_6_1_2_cmdline_settings.stdout"
+      notify: Grub update
+  when:
+    - ubtu22cis_rule_1_6_1_2
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.6.1.2
+    - apparmor
+
+- name: "1.6.1.4 | PATCH | Ensure all AppArmor Profiles are enforcing"
+  block:
+    - name: "1.6.1.4 | PATCH | Ensure all AppArmor Profiles are enforcing | Make sure that 1.6.1.3 is not run"
+      ansible.builtin.set_fact:
+        control_1_6_1_4_was_run: true
+        ubtu22cis_apparmor_enforce_only: true
+      changed_when: false
+
+    - name: "1.6.1.4 | PATCH | Ensure all AppArmor Profiles are enforcing | Get pre apply enforce count"
+      ansible.builtin.shell: apparmor_status |  grep "profiles are in enforce mode" | tr -d -c 0-9
+      changed_when: false
+      failed_when: false
+      register: ubtu22cis_1_6_1_4_pre_count
+
+    - name: "1.6.1.4 | PATCH | Ensure all AppArmor Profiles are enforcing | Apply enforcing to /etc/apparmor.d profiles"
+      ansible.builtin.shell: aa-enforce /etc/apparmor.d/*
+      changed_when: false
+      failed_when: false
+
+    - name: "1.6.1.4 | PATCH | Ensure all AppArmor Profiles are enforcing | Get post apply enforce count"
+      ansible.builtin.shell: apparmor_status |  grep "profiles are in enforce mode" | tr -d -c 0-9
+      changed_when: false
+      failed_when: false
+      register: ubtu22cis_1_6_1_4_post_count
+
+    - name: "1.6.1.4 | PATCH | Ensure all AppArmor Profiles are enforcing | This flags for idempotency"
+      ansible.builtin.debug:
+        msg: Changed! The profiles in /etc/apparmor.d were set to enforcing
+      changed_when: true
+      when: ubtu22cis_1_6_1_4_pre_count.stdout != ubtu22cis_1_6_1_4_post_count.stdout
+  when:
+    - ubtu22cis_rule_1_6_1_4
+    - not ubtu22cis_apparmor_disable
+  tags:
+    - level2-server
+    - level2-workstation
+    - automated
+    - scored
+    - patch
+    - rule_1.6.1.4
+    - apparmor
+
+- name: "1.6.1.3 | PATCH | Ensure all AppArmor Profiles are in enforce or complain mode"
+  block:
+    - name: "1.6.1.3 | AUDIT | Ensure all AppArmor Profiles are in enforce or complain | Set ubtu22cis_apparmor_enforce_only true for GOSS"
+      ansible.builtin.set_fact:
+        ubtu22cis_apparmor_enforce_only: true
+      changed_when: false
+      when:
+        - ubtu22cis_apparmor_mode == "enforce"
+
+    - name: "1.6.1.3 | AUDIT | Ensure all AppArmor Profiles are in enforce or complain | Set ubtu22cis_apparmor_enforce_only false for GOSS"
+      ansible.builtin.set_fact:
+        ubtu22cis_apparmor_enforce_only: false
+      changed_when: false
+      when:
+        - ubtu22cis_apparmor_mode == "complain"
+
+    - name: "1.6.1.3 | PATCH | Ensure all AppArmor Profiles are in enforce or complain mode | Get pre apply enforce count"
+      ansible.builtin.shell: apparmor_status |  grep "profiles are in {{ubtu22cis_apparmor_mode}} mode" | tr -d -c 0-9
+      changed_when: false
+      failed_when: false
+      register: ubtu22cis_1_6_1_3_pre_count
+
+    - name: "1.6.1.3 | PATCH | Ensure all AppArmor Profiles are in enforce or complain mode | Apply complaining/enforcing to /etc/apparmor.d profiles"
+      ansible.builtin.shell: aa-{{ubtu22cis_apparmor_mode}} /etc/apparmor.d/*
+      changed_when: false
+      failed_when: false
+
+    - name: "1.6.1.3 | PATCH | Ensure all AppArmor Profiles are in enforce or complain mode | Get post apply enforce count"
+      ansible.builtin.shell: apparmor_status |  grep "profiles are in {{ubtu22cis_apparmor_mode}} mode" | tr -d -c 0-9
+      changed_when: false
+      failed_when: false
+      register: ubtu22cis_1_6_1_3_post_count
+
+    - name: "1.6.1.3 | PATCH | Ensure all AppArmor Profiles are in enforce or complain mode | This flags for idempotency"
+      ansible.builtin.debug:
+        msg: Changed! The profiles in /etc/apparmor.d were set to {{ubtu22cis_apparmor_mode}} mode
+      changed_when: true
+      when: ubtu22cis_1_6_1_3_pre_count.stdout != ubtu22cis_1_6_1_3_post_count.stdout
+  when:
+    - ubtu22cis_rule_1_6_1_3
+    - not ubtu22cis_apparmor_disable
+    - not control_1_6_1_4_was_run
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.6.1.3
+    - apparmor
+
+- name: "1.7.1 | PATCH | Ensure message of the day is configured properly"
+  block:
+    - name: "1.7.1 | PATCH | Ensure message of the day is configured properly | motd"
+      ansible.builtin.template:
+        src: motd.j2
+        dest: /etc/motd
+
+    - name: "1.7.1 | PATCH | Ensure message of the day is configured properly | disable dynamic_motd"
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/sshd
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        backrefs: true
+      loop:
+        - { regexp: '(session\s+optional\s+pam_motd.so\s+motd=/run/motd.dynamic)', line: '# \1' }
+        - { regexp: '(session\s+optional\s+pam_motd.so noupdate)', line: '# \1' }
+        - { regexp: '# Pam_motd.so disabled for CIS benchmark', line: '# Pam_motd.so disabled for CIS benchmark' }
+      when: ubtu22cis_disable_dynamic_motd
+  when:
+    - ubtu22cis_rule_1_7_1
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.7.1
+    - motd
+
+- name: "1.7.2 | PATCH | Ensure local login warning banner is configured properly"
+  block:
+    - name: "1.7.2 | PATCH | Ensure local login warning banner is configured properly | issue"
+      ansible.builtin.template:
+        src: issue.j2
+        dest: /etc/issue
+
+    - name: "1.7.2 | PATCH | Ensure local login warning banner is kept on package upgrade | issue"
+      community.general.dpkg_divert:
+        path: /etc/issue
+  when:
+    - ubtu22cis_rule_1_7_2
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.7.2
+    - banner
+
+- name: "1.7.3 | PATCH | Ensure remote login warning banner is configured properly"
+  block:
+    - name: "1.7.3 | PATCH | Ensure remote login warning banner is configured properly | issue.net"
+      ansible.builtin.template:
+        src: issue.net.j2
+        dest: /etc/issue.net
+
+    - name: "1.7.3 | PATCH | Ensure remote login warning banner is kept on package upgrade | issue.net"
+      community.general.dpkg_divert:
+        path: /etc/issue.net
+  when:
+    - ubtu22cis_rule_1_7_3
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.7.3
+    - banner
+
+- name: "1.7.4 | PATCH | Ensure permissions on /etc/motd are configured"
+  ansible.builtin.file:
+    path: /etc/motd
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - ubtu22cis_rule_1_7_4
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.7.4
+    - permissions
+    - motd
+
+- name: "1.7.5 | PATCH | Ensure permissions on /etc/issue are configured"
+  ansible.builtin.file:
+    path: /etc/issue
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - ubtu22cis_rule_1_7_5
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.7.5
+    - permissions
+    - banner
+
+- name: "1.7.6 | PATCH | Ensure permissions on /etc/issue.net are configured"
+  ansible.builtin.file:
+    path: /etc/issue.net
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - ubtu22cis_rule_1_7_6
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.7.6
+    - permissions
+    - banner
+
+- name: "1.8.1 | PATCH | Ensure GNOME Display Manager is removed"
+  ansible.builtin.package:
+      name: gdm3
+      state: absent
+  when:
+      - ubtu22cis_rule_1_8_1
+      - not ubtu22cis_desktop_required
+      - ubtu22cis_disruption_high
+      - "'gdm3' in ansible_facts.packages"
+  tags:
+      - level2-server
+      - manual
+      - patch
+      - rule_1.8.1
+      - gnome
+
+- name: "1.8.2 | PATCH | Ensure GDM login banner is configured"
+  block:
+      - name: "1.8.2 | PATCH | Ensure GDM login banner is configured | make directory"
+        ansible.builtin.file:
+            path: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d"
+            owner: root
+            group: root
+            mode: '0755'
+            state: directory
+
+      - name: "1.8.2 | PATCH | Ensure GDM login banner is configured | banner settings"
+        ansible.builtin.lineinfile:
+            path: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/00-login-screen"
+            regexp: "{{ item.regexp }}"
+            line: "{{ item.line }}"
+            insertafter: "{{ item.insertafter }}"
+            create: true
+            owner: root
+            group: root
+            mode: '0644'
+        loop:
+            - { regexp: '\[org\/gnome\/login-screen\]', line: '[org/gnome/login-screen]', insertafter: EOF }
+            - { regexp: 'banner-message-enable', line: 'banner-message-enable=true', insertafter: '\[org\/gnome\/login-screen\]' }
+            - { regexp: 'banner-message-text', line: "banner-message-text='{{ ubtu22cis_warning_banner | regex_replace('\n', ' ') | trim }}'", insertafter: 'banner-message-enable' }
+  notify: Update dconf
+  when:
+      - ubtu22cis_rule_1_8_2
+      - ubtu22cis_desktop_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.8.2
+      - gnome
+
+- name: "1.8.3 | PATCH | Ensure disable-user-list is enabled"
+  block:
+      - name: "1.8.3 | PATCH | Ensure disable-user-list is enabled | make directories"
+        ansible.builtin.file:
+            path: "{{ item }}"
+            owner: root
+            group: root
+            mode: '0755'
+            state: directory
+        loop:
+            - /etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d
+            - /etc/dconf/profile
+
+      - name: "1.8.3 | PATCH | Ensure disable-user-list is enabled | disable-user-list setting login-screen"
+        ansible.builtin.lineinfile:
+            path: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/00-login-screen"
+            regexp: "{{ item.regexp }}"
+            line: "{{ item.line }}"
+            insertafter: "{{ item.insertafter }}"
+            create: true
+            owner: root
+            group: root
+            mode: '0644'
+        loop:
+            - { regexp: '\[org\/gnome\/login-screen\]', line: '[org/gnome/login-screen]', insertafter: EOF }
+            - { regexp: 'disable-user-list', line: 'disable-user-list=true', insertafter: '\[org\/gnome\/login-screen\]' }
+
+      - name: "1.8.3 | PATCH | Ensure disable-user-list is enabled | disable-user-list setting profile"
+        ansible.builtin.lineinfile:
+            path: "/etc/dconf/profile/{{ ubtu22cis_dconf_db_name }}"
+            regexp: "{{ item.regexp }}"
+            line: "{{ item.line }}"
+            insertafter: "{{ item.insertafter }}"
+            create: true
+            owner: root
+            group: root
+            mode: '0644'
+        loop:
+            - { regexp: '^user-db:user', line: 'user-db:user', insertafter: EOF }
+            - { regexp: '^system-db:{{ ubtu22cis_dconf_db_name }}', line: 'system-db:{{ ubtu22cis_dconf_db_name }}', insertafter: 'user-db:user' }
+            - { regexp: '^file-db:/usr/share/gdm/greeter-dconf-defaults', line: 'file-db:/usr/share/gdm/greeter-dconf-defaults', insertafter: 'system-db:{{ ubtu22cis_dconf_db_name }}' }
+  notify: Update dconf
+  when:
+      - ubtu22cis_rule_1_8_3
+      - ubtu22cis_desktop_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.8.3
+      - gnome
+
+- name: "1.8.4 | PATCH | Ensure GDM screen locks when the user is idle"
+  block:
+      - name: "1.8.4 | PATCH | Ensure GDM screen locks when the user is idle | session profile"
+        ansible.builtin.lineinfile:
+            path: "/etc/dconf/profile/{{ ubtu22cis_dconf_db_name }}"
+            regexp: "{{ item.regexp }}"
+            line: "{{ item.line }}"
+            insertafter: "{{ item.after | default(omit) }}"
+            create: true
+        loop:
+            - { regexp: 'user-db:user', line: 'user-db:user' }
+            - { regexp: 'system-db:{{ ubtu22cis_dconf_db_name }}', line: 'system-db:{{ ubtu22cis_dconf_db_name }}', after: '^user-db.*' }
+
+      - name: "1.8.4 | PATCH | Ensure GDM screen locks when the user is idle | make directory"
+        ansible.builtin.file:
+            path: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d"
+            owner: root
+            group: root
+            mode: '0755'
+            state: directory
+        notify: Update dconf
+
+      - name: "1.8.4 | PATCH | Ensure GDM screen locks when the user is idle | session script"
+        ansible.builtin.template:
+            src: etc/dconf/db/00-screensaver.j2
+            dest: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/00-screensaver"
+            owner: root
+            group: root
+            mode: '0644'
+        notify: Update dconf
+  when:
+      - ubtu22cis_rule_1_8_4
+      - ubtu22cis_desktop_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.8.4
+      - gnome
+
+- name: "1.8.5 | PATCH | Ensure GDM screen locks cannot be overridden"
+  block:
+      - name: "1.8.5 | PATCH | Ensure GDM screen locks cannot be overridden | make lock directory"
+        ansible.builtin.file:
+            path: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/locks"
+            owner: root
+            group: root
+            mode: '0755'
+            state: directory
+        notify: Update dconf
+
+      - name: "1.8.5 | PATCH | Ensure GDM screen locks cannot be overridden | make lockfile"
+        ansible.builtin.template:
+            src: etc/dconf/db/00-screensaver_lock.j2
+            dest: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/locks/00-screensaver"
+            owner: root
+            group: root
+            mode: '0644'
+        notify: Update dconf
+  when:
+      - ubtu22cis_rule_1_8_5
+      - ubtu22cis_desktop_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.8.5
+      - gnome
+
+- name: "1.8.6 | PATCH | Ensure GDM automatic mounting of removable media is disabled"
+  block:
+      - name: "1.8.6 | PATCH | Ensure GDM automatic mounting of removable media is disabled | make directory"
+        ansible.builtin.file:
+            path: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d"
+            owner: root
+            group: root
+            mode: '0755'
+            state: directory
+        notify: Update dconf
+
+      - name: "1.8.6 | PATCH | Ensure GDM automatic mounting of removable media is disabled | session script"
+        ansible.builtin.template:
+            src: etc/dconf/db/00-media-automount.j2
+            dest: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/00-media-automount"
+            owner: root
+            group: root
+            mode: '0644'
+        notify: Update dconf
+  when:
+      - ubtu22cis_rule_1_8_6
+      - ubtu22cis_desktop_required
+  tags:
+      - level1-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_1.8.6
+      - gnome
+
+- name: "1.8.7 | PATCH | Ensure GDM disabling automatic mounting of removable media is not overridden"
+  block:
+      - name: "1.8.7 | PATCH | Ensure GDM disabling automatic mounting of removable media is not overridden | make lock directory"
+        ansible.builtin.file:
+            path: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/locks"
+            owner: root
+            group: root
+            mode: '0755'
+            state: directory
+        notify: Update dconf
+
+      - name: "1.8.7 | PATCH | Ensure GDM disabling automatic mounting of removable media is not overridden | make lockfile"
+        ansible.builtin.template:
+            src: etc/dconf/db/00-automount_lock.j2
+            dest: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/locks/00-automount_lock"
+            owner: root
+            group: root
+            mode: '0644'
+        notify: Update dconf
+  when:
+      - ubtu22cis_rule_1_8_7
+      - ubtu22cis_desktop_required
+  tags:
+      - level1-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_1.8.7
+      - gnome
+
+- name: "1.8.8 | PATCH | Ensure GDM autorun-never is enabled"
+  block:
+      - name: "1.8.8 | PATCH | Ensure GDM autorun-never is enabled | make directory"
+        ansible.builtin.file:
+            path: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d"
+            owner: root
+            group: root
+            mode: '0755'
+            state: directory
+        notify: Update dconf
+
+      - name: "1.8.8 | PATCH | Ensure GDM autorun-never is enabled | session script"
+        ansible.builtin.template:
+            src: etc/dconf/db/00-media-autorun.j2
+            dest: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/00-media-autorun"
+            owner: root
+            group: root
+            mode: '0644'
+        notify: Update dconf
+  when:
+      - ubtu22cis_rule_1_8_8
+      - ubtu22cis_desktop_required
+  tags:
+      - level1-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_1.8.8
+      - gnome
+
+- name: "1.8.9 | PATCH | Ensure GDM autorun-never is not overridden"
+  block:
+      - name: "1.8.9 | PATCH | Ensure GDM autorun-never is not overridden | make lock directory"
+        ansible.builtin.file:
+            path: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/locks"
+            owner: root
+            group: root
+            mode: '0755'
+            state: directory
+        notify: Update dconf
+
+      - name: "1.8.9 | PATCH | Ensure GDM autorun-never is not overridden | make lockfile"
+        ansible.builtin.template:
+            src: etc/dconf/db/00-autorun_lock.j2
+            dest: "/etc/dconf/db/{{ ubtu22cis_dconf_db_name }}.d/locks/00-autorun_lock"
+            owner: root
+            group: root
+            mode: '0644'
+        notify: Update dconf
+  when:
+      - ubtu22cis_rule_1_8_9
+      - ubtu22cis_desktop_required
+  tags:
+      - level1-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_1.8.9
+      - gnome
+
+- name: "1.8.10 | PATCH | Ensure XDCMP is not enabled"
+  ansible.builtin.lineinfile:
+      path: /etc/gdm3/custom.conf
+      regexp: '^Enable.*=.*true'
+      state: absent
+  when:
+      - ubtu22cis_rule_1_8_10
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.8.10
+      - gnome
+      - xdcmp
+
+- name: "1.9 | PATCH | Ensure updates, patches, and additional security software are installed"
+  ansible.builtin.package:
+      name: "*"
+      state: latest
+  when:
+      - ubtu22cis_rule_1_9
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - rule_1.9
+      - patch
+
+- name: "2.1.1.1 | PATCH | Ensure a single time synchronization daemon is in use"
+  block:
+      - name: "2.1.1.1 | PATCH | Ensure a single time synchronization daemon is in use | Pkg installed"
+        ansible.builtin.package:
+            name: "{{ ubtu22cis_time_sync_tool }}"
+            state: present
+
+      - name: "2.1.1.1 | PATCH | Ensure a single time synchronization daemon is in use | other pkgs removed"
+        ansible.builtin.package:
+            name: "{{ item }}"
+            state: absent
+        loop:
+            - chrony
+            - ntp
+        when: item != ubtu22cis_time_sync_tool
+
+      - name: "2.1.1.1 | PATCH | Ensure a single time synchronization daemon is in use | mask service"
+        ansible.builtin.service:
+            name: systemd-timesyncd
+            state: stopped
+            enabled: false
+            masked: true
+            daemon_reload: true
+        when:
+            - ubtu22cis_time_sync_tool != "systemd-timesyncd"
+            - "'systemd-timesyncd' in ansible_facts.packages"
+
+  when:
+      - ubtu22cis_rule_2_1_1_1
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.1.1.1
+      - chrony
+      - ntp
+      - systemd-timesyncd
+
+- name: "2.1.2.1 | PATCH | Ensure chrony is configured with authorized timeserver"
+  block:
+      - name: "2.1.2.1 | PATCH | Ensure chrony is configured with authorized timeserver | sources"
+        ansible.builtin.template:
+            src: "{{ item }}.j2"
+            dest: "/{{ item }}"
+            mode: '0644'
+            owner: root
+            group: root
+        loop:
+            - etc/chrony/sources.d/pool.sources
+            - etc/chrony/sources.d/server.sources
+        notify: Restart timeservice
+
+      - name: "2.1.2.1 | PATCH | Ensure chrony is configured with authorized timeserver | load sources"
+        ansible.builtin.lineinfile:
+            path: /etc/chrony/chrony.conf
+            regexp: '^sourcedir /etc/chrony/sources.d'
+            line: sourcedir /etc/chrony/sources.d
+        notify: Restart timeservice
+  when:
+      - ubtu22cis_rule_2_1_2_1
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - rule_2.1.2.1
+      - chrony
+
+- name: "2.1.2.2 | PATCH | Ensure chrony is running as user _chrony"
+  ansible.builtin.lineinfile:
+      path: /etc/chrony/chrony.conf
+      regexp: '^user _chrony'
+      line: 'user _chrony'
+  when:
+      - ubtu22cis_rule_2_1_2_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - rule_2.1.2.2
+      - chrony
+
+- name: "2.1.2.3 | PATCH | Ensure chrony is enabled and running"
+  block:
+    - name: "2.1.2.3 | PATCH | Unmask chrony service"
+      ansible.builtin.systemd:
+          name: chrony
+          masked: false
+
+    - name: "2.1.2.3 | PATCH | Ensure chrony is enabled and running"
+      ansible.builtin.systemd:
+          name: chrony
+          state: started
+          enabled: true
+  when:
+      - ubtu22cis_rule_2_1_2_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - rule_2.1.2.3
+      - chrony
+
+
+- name: "2.1.3.1 | PATCH | Ensure systemd-timesyncd configured with authorized timeserver"
+  block:
+      - name: "2.1.3.1 | PATCH | Ensure systemd-timesyncd configured with authorized timeserver | create conf.d dir"
+        ansible.builtin.file:
+            path: /etc/systemd/timesyncd.conf.d
+            owner: root
+            group: root
+            mode: '0755'
+            state: directory
+
+      - name: "2.1.3.1 | PATCH | Ensure systemd-timesyncd configured with authorized timeserver | sources"
+        ansible.builtin.template:
+            src: "{{ item }}.j2"
+            dest: "/{{ item }}"
+            mode: '0644'
+            owner: root
+            group: root
+        loop:
+            - "etc/systemd/timesyncd.conf.d/50-timesyncd.conf"
+        notify: Restart timeservice
+  when:
+      - ubtu22cis_rule_2_1_3_1
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - rule_2.1.3.1
+      - timesyncd
+
+- name: "2.1.3.2 | PATCH | Ensure systemd-timesyncd is installed"
+  ansible.builtin.package:
+      name: systemd-timesyncd
+      state: present
+  when:
+      - ubtu22cis_rule_2_1_3_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - rule_2.1.3.2
+      - timesyncd
+
+- name: "2.1.3.3 | PATCH | Ensure systemd-timesyncd is enabled and running"
+  ansible.builtin.systemd:
+      name: systemd-timesyncd
+      state: started
+      enabled: true
+      masked: false
+  when:
+      - ubtu22cis_rule_2_1_3_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - rule_2.1.3.2
+      - timesyncd
+
+- name: "2.1.4.1 | PATCH | Ensure ntp access control is configured "
+  ansible.builtin.lineinfile:
+      path: /etc/ntp.conf
+      regexp: '^(restrict) (|{{ item }}) .*$'
+      line: 'restrict {{ item }} default kod nomodify notrap nopeer noquery'
+  loop:
+      - '-4'
+      - '-6'
+  notify: Restart timeservice
+  when:
+      - ubtu22cis_rule_2_1_4_1
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - rule_2.1.4.1
+      - ntp
+
+- name: "2.1.4.2 | PATCH | Ensure ntp is configured with authorized timeserver"
+  block:
+      - name: "2.1.4.2 | PATCH | Ensure ntp is configured with authorized timeserver | pool"
+        ansible.builtin.lineinfile:
+            path: /etc/ntp.conf
+            regexp: '^pool.*'
+            line: 'pool {{ item.name }} {{ item.options }}'
+        notify: Restart timeservice
+        loop: "{{ ubtu22cis_time_pool }}"
+        loop_control:
+            label: "{{ item.name }}"
+
+      - name: "2.1.4.2 | PATCH | Ensure ntp is configured with authorized timeserver | servers"
+        ansible.builtin.lineinfile:
+            path: /etc/ntp.conf
+            insertafter: '^server'
+            line: 'server {{ item.name }} {{ item.options }}'
+        loop: "{{ ubtu22cis_time_servers }}"
+        loop_control:
+            label: "{{ item.name }}"
+        notify: Restart timeservice
+  when:
+      - ubtu22cis_rule_2_1_4_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - rule_2.1.4.2
+      - ntp
+
+- name: "2.1.4.3 | PATCH | Ensure ntp is running as user ntp"
+  ansible.builtin.lineinfile:
+      path: /etc/init.d/ntp
+      regexp: '^RUNASUSER.*'
+      line: 'RUNASUSER=ntp'
+  notify: Restart timeservice
+  when:
+      - ubtu22cis_rule_2_1_4_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - rule_2.1.4.3
+      - ntp
+
+- name: "2.1.4.4 | PATCH | Ensure ntp is enabled and running"
+  ansible.builtin.systemd:
+      name: ntp
+      state: started
+      enabled: true
+      masked: false
+  when:
+      - ubtu22cis_rule_2_1_4_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - rule_2.1.4.4
+      - ntp
+
+- name: "2.2.1 | PATCH | Ensure X Window System is not installed"
+  ansible.builtin.package:
+      name: xserver-xorg*
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_1
+      - not ubtu22cis_desktop_required
+  tags:
+      - level1-server
+      - automated
+      - patch
+      - rule_2.2.1
+      - xwindows
+
+- name: "2.2.2 | PATCH | Ensure Avahi Server is not installed"
+  block:
+      - name: "2.2.2 | PATCH | Ensure Avahi Server is not installed| Stop/Disable avahi-daemon.service"
+        ansible.builtin.service:
+            name: avahi-daemon.service
+            state: stopped
+            enabled: false
+        when: avahi_service_status.stdout == "loaded"
+
+      - name: "2.2.2 | PATCH | Ensure Avahi Server is not installed | Stop/Disable avahi-daemon.socket"
+        ansible.builtin.systemd:
+            name: avahi-daemon.socket
+            state: stopped
+            enabled: false
+        when: avahi_service_status.stdout == "loaded"
+
+      - name: "2.2.2 | PATCH | Ensure Avahi Server is not installed | Remove avahi-daemon"
+        ansible.builtin.package:
+            name: avahi-daemon
+            state: absent
+            purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_2
+      - not ubtu22cis_avahi_server
+      - ubtu22cis_disruption_high
+      - "'avahi-daemon' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.2
+      - avahi
+      - services
+
+- name: "2.2.3 | PATCH | Ensure CUPS is not installed"
+  ansible.builtin.package:
+      name: cups
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_3
+      - not ubtu22cis_cups_server
+      - "'cups' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_2.2.3
+      - cups
+      - services
+
+- name: "2.2.4 | PATCH | Ensure DHCP Server is not installed"
+  ansible.builtin.package:
+      name: isc-dhcp-server
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_4
+      - not ubtu22cis_dhcp_server
+      - "'isc-dhcp-server' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.4
+      - dhcp
+      - services
+
+- name: "2.2.5 | PATCH | Ensure LDAP server is not installed"
+  ansible.builtin.package:
+      name: slapd
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_5
+      - not ubtu22cis_ldap_server
+      - "'slapd' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.5
+      - ldap
+      - services
+
+- name: "2.2.6 | PATCH | Ensure NFS is not installed"
+  ansible.builtin.package:
+      name: nfs-kernel-server
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_6
+      - not ubtu22cis_nfs_server
+      - "'nfs-kernel-server' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.6
+      - nfs
+      - rpc
+      - services
+
+- name: "2.2.7 | PATCH | Ensure DNS Server is not installed"
+  ansible.builtin.package:
+      name: bind9
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_7
+      - not ubtu22cis_dns_server
+      - "'bind9' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.7
+      - dns
+      - service
+
+- name: "2.2.8 | PATCH | Ensure FTP Server is not installed"
+  ansible.builtin.package:
+      name: vsftpd
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_8
+      - not ubtu22cis_vsftpd_server
+      - "'vsftpd' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.8
+      - ftp
+      - service
+
+- name: "2.2.9 | PATCH | Ensure HTTP server is not installed"
+  ansible.builtin.package:
+      name: apache2
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_9
+      - not ubtu22cis_httpd_server
+      - "'apache2' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.9
+      - httpd
+      - service
+
+- name: "2.2.10 | PATCH | Ensure IMAP and POP3 server are not installed"
+  ansible.builtin.package:
+      name: ['dovecot-imapd', 'dovecot-pop3d']
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_10
+      - not ubtu22cis_dovecot_server
+      - "'dovecot-imapd' in ansible_facts.packages or
+        'dovecot-pop3d' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.10
+      - dovecot
+      - service
+
+- name: "2.2.11 | PATCH | Ensure Samba is not installed"
+  ansible.builtin.package:
+      name: samba
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_11
+      - not ubtu22cis_smb_server
+      - "'samba' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.11
+      - samba
+      - service
+
+- name: "2.2.12 | PATCH | Ensure HTTP Proxy Server is not installed"
+  ansible.builtin.package:
+      name: squid
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_12
+      - not ubtu22cis_squid_server
+      - "'squid' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.12
+      - http_proxy
+      - service
+
+- name: "2.2.13 | PATCH | Ensure SNMP Server is not installed"
+  ansible.builtin.package:
+      name: snmpd
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_13
+      - not ubtu22cis_snmp_server
+      - "'snmpd' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.13
+      - snmp
+      - service
+
+- name: "2.2.14 | PATCH | Ensure NIS Server is not installed"
+  ansible.builtin.package:
+      name: nis
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_2_14
+      - not ubtu22cis_nis_server
+      - "'nis' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - rule_2.2.14
+      - nis
+      - service
+
+- name: "2.2.15 | PATCH | Ensure mail transfer agent is configured for local-only mode"
+  block:
+      - name: "2.2.15 | PATCH | Ensure mail transfer agent is configured for local-only mode | Make changes if exim4 installed"
+        ansible.builtin.lineinfile:
+            path: /etc/exim4/update-exim4.conf.conf
+            regexp: "{{ item.regexp }}"
+            line: "{{ item.line }}"
+        with_items:
+            - { regexp: '^dc_eximconfig_configtype', line: "dc_eximconfig_configtype='local'" }
+            - { regexp: '^dc_local_interfaces', line: "dc_local_interfaces='127.0.0.1 ; ::1'" }
+            - { regexp: '^dc_readhost', line: "dc_readhost=''" }
+            - { regexp: '^dc_relay_domains', line: "dc_relay_domains=''" }
+            - { regexp: '^dc_minimaldns', line: "dc_minimaldns='false'" }
+            - { regexp: '^dc_relay_nets', line: "dc_relay_nets=''" }
+            - { regexp: '^dc_smarthost', line: "dc_smarthost=''" }
+            - { regexp: '^dc_use_split_config', line: "dc_use_split_config='false'" }
+            - { regexp: '^dc_hide_mailname', line: "dc_hide_mailname=''" }
+            - { regexp: '^dc_mailname_in_oh', line: "dc_mailname_in_oh='true'" }
+            - { regexp: '^dc_localdelivery', line: "dc_localdelivery='mail_spool'" }
+        notify: Restart exim4
+        when: "'exim4' in ansible_facts.packages"
+
+      - name: "2.2.15 | PATCH | Ensure mail transfer agent is configured for local-only mode | Make changes if postfix is installed"
+        ansible.builtin.lineinfile:
+            path: /etc/postfix/main.cf
+            regexp: '^(#)?inet_interfaces'
+            line: 'inet_interfaces = loopback-only'
+        notify: Restart postfix
+        when: "'postfix' in ansible_facts.packages"
+
+      - name: "2.2.15 | PATCH | Ensure mail transfer agent is configured for local-only mode | Message out other main agents"
+        ansible.builtin.debug:
+            msg:
+                - "Warning!! You are not using either exim4 or postfix"
+                - "Please review your vendors documentation to configure local-only mode"
+        when:
+            - "'exim4' not in ansible_facts.packages"
+            - "'postfix' not in ansible_facts.packages"
+
+      - name: "2.2.15 | WARN | Ensure mail transfer agent is configured for local-only mode | warn_count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+        when:
+            - "'exim4' not in ansible_facts.packages"
+            - "'postfix' not in ansible_facts.packages"
+  vars:
+      warn_control_id: '2.2.15'
+  when:
+      - ubtu22cis_rule_2_2_15
+      - not ubtu22cis_is_mail_server
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - scored
+      - patch
+      - rule_2.2.15
+      - postfix
+
+- name: "2.2.16 | PATCH | Ensure rsync service is either not installed or masked"
+  block:
+      - name: "2.2.16 | PATCH | Ensure rsync service is either not installed or masked | remove pkg"
+        ansible.builtin.package:
+            name: rsync
+            state: absent
+            purge: "{{ ubtu22cis_purge_apt }}"
+        when:
+            - ubtu22cis_rule_2_2_16
+            - ubtu22cis_rsync_server == 'remove'
+
+      - name: "2.2.16 | PATCH | Ensure rsync service is either not installed or masked | mask service"
+        ansible.builtin.systemd:
+            name: rsync
+            masked: true
+            enabled: false
+            state: stopped
+            daemon_reload: true
+        when:
+            - ubtu22cis_rule_2_2_16
+            - ubtu22cis_rsync_server == 'mask'
+  when:
+      - "'rsync' in ansible_facts.packages"
+      - ubtu22cis_rule_2_2_16
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.2.16
+      - rsync
+
+- name: "2.3.1 | PATCH | Ensure NIS Client is not installed"
+  ansible.builtin.package:
+      name: nis
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_3_1
+      - not ubtu22cis_nis_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - rule_2.3.1
+      - nis
+
+- name: "2.3.2 | PATCH | Ensure rsh client is not installed"
+  ansible.builtin.package:
+      name: rsh-client
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_3_2
+      - not ubtu22cis_rsh_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.3.2
+      - rsh
+
+- name: "2.3.3 | PATCH | Ensure talk client is not installed"
+  ansible.builtin.package:
+      name: talk
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_3_3
+      - not ubtu22cis_talk_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.3.3
+      - talk
+
+- name: "2.3.4 | PATCH | Ensure telnet client is not installed"
+  ansible.builtin.package:
+      name: telnet
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_3_4
+      - not ubtu22cis_telnet_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.3.4
+      - telnet
+
+- name: "2.3.5 | PATCH | Ensure LDAP client is not installed"
+  ansible.builtin.package:
+      name: ldap-utils
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_3_5
+      - not ubtu22cis_ldap_clients_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.3.5
+      - ldap
+
+- name: "2.3.6 | PATCH | Ensure RPC is not installed"
+  ansible.builtin.package:
+      name: rpcbind
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_2_3_6
+      - not ubtu22cis_rpc_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_2.3.6
+      - rpc
+
+- name: "2.4 | AUDIT | Ensure nonessential services are removed or masked"
+  block:
+      - name: "2.4 | AUDIT | Ensure nonessential services are removed or masked | Check for services"
+        ansible.builtin.shell: lsof -i -P -n | grep -v "(ESTABLISHED)"
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_2_4_services
+
+      - name: "2.4 | AUDIT | Ensure nonessential services are removed or masked | Message out running services"
+        ansible.builtin.debug:
+            msg:
+                - "Warning!! Below are the running services. Please review and remove as well as mask un-needed services"
+                - "{{ ubtu22cis_2_4_services.stdout_lines }}"
+        when: ubtu22cis_2_4_services.stdout | length > 0
+
+      - name: "2.4 | AUDIT | Ensure nonessential services are removed or masked | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+        when: ubtu22cis_2_4_services.stdout | length > 0
+  vars:
+      warn_control_id: '2.4'
+  when:
+      - ubtu22cis_rule_2_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - audit
+      - rule_2.4
+      - services
+
+- name: "3.1.1 | PATCH | Ensure system is checked to determine if IPv6 is enabled"
+  block:
+      - name: "3.1.1 | PATCH | Ensure system is checked to determine if IPv6 is enabled | Replace ipv6.disable if it exists"
+        ansible.builtin.replace:
+            path: /etc/default/grub
+            regexp: '^(GRUB_CMDLINE_LINUX=.*)\bipv6\.disable=\d\b(.*$)'
+            replace: '\1ipv6.disable=1\2'
+        when: ubtu22cis_ipv6_disable == 'grub'
+        register: ipv6disable_replaced
+        notify: Grub update
+
+      - name: "3.1.1 | PATCH | Ensure system is checked to determine if IPv6 is enabled | Check grub cmdline linux"
+        ansible.builtin.shell: grep "GRUB_CMDLINE_LINUX=" /etc/default/grub | cut -f2 -d'"'
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_3_1_1_cmdline_settings
+
+      - name: "3.1.1 | PATCH | Ensure system is checked to determine if IPv6 is enabled | Insert ipv6.disable if it doesn't exist"
+        ansible.builtin.lineinfile:
+            path: /etc/default/grub
+            regexp: '^(GRUB_CMDLINE_LINUX=".*)"$'
+            line: '\1 ipv6.disable=1"'
+            backrefs: true
+        when:
+            - ubtu22cis_ipv6_disable == 'grub'
+            - ipv6disable_replaced is not changed
+            - "'ipv6.disable' not in ubtu22cis_3_1_1_cmdline_settings.stdout"
+        notify: Grub update
+
+      - name: "3.1.1 | PATCH | Ensure system is checked to determine if IPv6 is enabled | Remove net.ipv6.conf.all.disable_ipv6"
+        ansible.builtin.template:
+            src: "{{ item }}.j2"
+            dest: "/{{ item }}"
+            owner: root
+            group: root
+            mode: '0640'
+        notify: Flush ipv6 route table
+        loop:
+            - etc/sysctl.d/60-disable_ipv6.conf
+        when: ubtu22cis_ipv6_disable == 'sysctl'
+  when:
+      - ubtu22cis_rule_3_1_1
+      - not ubtu22cis_ipv6_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - rule_3.1.1
+      - ipv6
+
+- name: "3.1.2 | PATCH | Ensure wireless interfaces are disabled"
+  block:
+      - name: "3.1.2 | PATCH | Ensure wireless interfaces are disabled | Check for network-manager tool"
+        ansible.builtin.shell: nmcli radio wifi
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_3_1_2_wifi_status
+        when: "'network-manager' in ansible_facts.packages"
+
+      - name: "3.1.2 | PATCH | Ensure wireless interfaces are disabled | Disable wireless if network-manager installed"
+        ansible.builtin.shell: nmcli radio all off
+        changed_when: ubtu22cis_3_1_2_nmcli_radio_off.rc == 0
+        register: ubtu22cis_3_1_2_nmcli_radio_off
+        when:
+            - "'network-manager' in ansible_facts.packages"
+            - "'enabled' in ubtu22cis_3_1_2_wifi_status.stdout"
+
+      - name: "3.1.2 | PATCH | Ensure wireless interfaces are disabled | Warn about wireless if network-manager not installed"
+        ansible.builtin.debug:
+            msg: "Warning!! You need to disable wireless interfaces manually since network-manager is not installed"
+        when: "'network-manager' not in ansible_facts.packages"
+
+      - name: "3.1.2 | PATCH | Ensure wireless interfaces are disabled | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+        when: "'network-manager' not in ansible_facts.packages"
+  vars:
+      warn_control_id: '3.1.2'
+  when:
+      - ubtu22cis_rule_3_1_2
+  tags:
+      - level1-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_3.1.2
+      - wireless
+
+- name: "3.2.1 | PATCH | Ensure packet redirect sending is disabled"
+  ansible.posix.sysctl:
+      name: "{{ item }}"
+      value: '0'
+      sysctl_set: true
+      sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+      state: present
+      reload: true
+      ignoreerrors: true
+  with_items:
+      - net.ipv4.conf.all.send_redirects
+      - net.ipv4.conf.default.send_redirects
+  notify: Flush ipv4 route table
+  when:
+      - ubtu22cis_rule_3_2_1
+      - not ubtu22cis_is_router
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.2.1
+      - packet_redirect
+      - sysctl
+
+- name: "3.2.2 | PATCH | Ensure IP forwarding is disabled"
+  block:
+      - name: "3.2.2 | PATCH | Ensure IP forwarding is disabled | IPv4 settings"
+        ansible.posix.sysctl:
+            name: net.ipv4.ip_forward
+            value: '0'
+            sysctl_set: true
+            sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+            state: present
+            reload: true
+            ignoreerrors: true
+        notify:
+            - Flush ipv4 route table
+
+      - name: "3.2.2 | PATCH | Ensure IP forwarding is disabled | IPv6 settings"
+        ansible.posix.sysctl:
+            name: net.ipv6.conf.all.forwarding
+            value: '0'
+            sysctl_set: true
+            sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+            state: present
+            reload: true
+            ignoreerrors: true
+        when: ubtu22cis_ipv6_disable == 'sysctl'
+        notify:
+            - Flush ipv6 route table
+
+  when:
+      - ubtu22cis_rule_3_2_2
+      - not ubtu22cis_is_router
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.2.2
+      - ip_forwarding
+      - sysctl
+
+- name: "3.3.1 | PATCH | Ensure source routed packets are not accepted"
+  block:
+    - name: "3.3.1 | PATCH | Ensure source routed packets are not accepted | IPv4 settings"
+      ansible.posix.sysctl:
+        name: "{{ item }}"
+        value: '0'
+        sysctl_set: true
+        sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+        state: present
+        reload: true
+        ignoreerrors: true
+      with_items:
+        - net.ipv4.conf.all.accept_source_route
+        - net.ipv4.conf.default.accept_source_route
+      notify: Flush ipv4 route table
+
+    - name: "3.3.1 | PATCH | Ensure source routed packets are not accepted | IPv6 settings"
+      ansible.posix.sysctl:
+        name: "{{ item }}"
+        value: '0'
+        sysctl_set: true
+        sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+        state: present
+        reload: true
+        ignoreerrors: true
+      when: ubtu22cis_ipv6_disable == 'sysctl'
+      with_items:
+        - net.ipv6.conf.all.accept_source_route
+        - net.ipv6.conf.default.accept_source_route
+      notify: Flush ipv6 route table
+  when:
+    - ubtu22cis_rule_3_3_1
+    - not ubtu22cis_is_router
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_3.3.1
+    - routed_packets
+    - sysctl
+
+- name: "3.3.2 | PATCH | Ensure ICMP redirects are not accepted"
+  block:
+    - name: "3.3.2 | PATCH | Ensure ICMP redirects are not accepted | IPv4 settings"
+      ansible.posix.sysctl:
+        name: "{{ item }}"
+        value: '0'
+        sysctl_set: true
+        sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+        state: present
+        reload: true
+        ignoreerrors: true
+      with_items:
+        - net.ipv4.conf.all.accept_redirects
+        - net.ipv4.conf.default.accept_redirects
+      notify: Flush ipv4 route table
+
+    - name: "3.3.2 | PATCH | Ensure ICMP redirects are not accepted | IPv6 settings"
+      ansible.posix.sysctl:
+        name: "{{ item }}"
+        value: '0'
+        sysctl_set: true
+        sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+        state: present
+        reload: true
+        ignoreerrors: true
+      when: ubtu22cis_ipv6_disable == 'sysctl'
+      with_items:
+        - net.ipv6.conf.all.accept_redirects
+        - net.ipv6.conf.default.accept_redirects
+      notify: Flush ipv6 route table
+  when:
+    - ubtu22cis_rule_3_3_2
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_3.3.2
+    - icmp
+    - sysctl
+
+- name: "3.3.3 | PATCH | Ensure secure ICMP redirects are not accepted"
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: '0'
+    sysctl_set: true
+    sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+    state: present
+    reload: true
+    ignoreerrors: true
+  with_items:
+    - net.ipv4.conf.all.secure_redirects
+    - net.ipv4.conf.default.secure_redirects
+  notify: Flush ipv4 route table
+  when:
+    - ubtu22cis_rule_3_3_3
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_3.3.3
+    - icmp
+    - sysctl
+
+- name: "3.3.4 | PATCH | Ensure suspicious packets are logged"
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: '1'
+    sysctl_set: true
+    sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+    state: present
+    reload: true
+    ignoreerrors: true
+  with_items:
+    - net.ipv4.conf.all.log_martians
+    - net.ipv4.conf.default.log_martians
+  notify: Flush ipv4 route table
+  when:
+    - ubtu22cis_rule_3_3_4
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_3.3.4
+    - suspicious_packets
+    - sysctl
+
+- name: "3.3.5 | PATCH | Ensure broadcast ICMP requests are ignored"
+  ansible.posix.sysctl:
+    name: net.ipv4.icmp_echo_ignore_broadcasts
+    value: '1'
+    sysctl_set: true
+    sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+    state: present
+    reload: true
+    ignoreerrors: true
+  notify: Flush ipv4 route table
+  when:
+    - ubtu22cis_rule_3_3_5
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_3.3.5
+    - icmp
+    - sysctl
+
+- name: "3.3.6 | PATCH | Ensure bogus ICMP responses are ignored"
+  ansible.posix.sysctl:
+    name: net.ipv4.icmp_ignore_bogus_error_responses
+    value: '1'
+    sysctl_set: true
+    sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+    state: present
+    reload: true
+    ignoreerrors: true
+  notify: Flush ipv4 route table
+  when:
+    - ubtu22cis_rule_3_3_6
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_3.3.6
+    - icmp
+    - sysctl
+
+- name: "3.3.7 | PATCH | Ensure Reverse Path Filtering is enabled"
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: '1'
+    sysctl_set: true
+    sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+    state: present
+    reload: true
+    ignoreerrors: true
+  with_items:
+    - net.ipv4.conf.all.rp_filter
+    - net.ipv4.conf.default.rp_filter
+  notify: Flush ipv4 route table
+  when:
+    - ubtu22cis_rule_3_3_7
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_3.3.7
+    - reverse_path_filtering
+    - sysctl
+
+- name: "3.3.8 | PATCH | Ensure TCP SYN Cookies is enabled"
+  ansible.posix.sysctl:
+    name: net.ipv4.tcp_syncookies
+    value: '1'
+    sysctl_set: true
+    sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+    state: present
+    reload: true
+    ignoreerrors: true
+  notify: Flush ipv4 route table
+  when:
+    - ubtu22cis_rule_3_3_8
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_3.3.8
+    - tcp_syn_cookies
+    - sysctl
+
+- name: "3.3.9 | PATCH | Ensure IPv6 router advertisements are not accepted"
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: '0'
+    sysctl_set: true
+    sysctl_file: "{{ ubtu22cis_sysctl_network_conf }}"
+    state: present
+    reload: true
+    ignoreerrors: true
+  with_items:
+    - net.ipv6.conf.all.accept_ra
+    - net.ipv6.conf.default.accept_ra
+  notify: Flush ipv6 route table
+  when:
+    - ubtu22cis_rule_3_3_9
+    - ubtu22cis_ipv6_required
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_3.3.9
+    - ipv6
+    - router_advertisements
+    - sysctl
+
+- name: "3.4.1 | PATCH | Ensure DCCP is disabled"
+  block:
+    - name: "3.4.1 | PATCH | Ensure DCCP is disabled | modprobe"
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/dccp.conf
+        regexp: '^(#)?install dccp(\\s|$)'
+        line: "{{ item }}"
+        create: true
+      loop:
+        - install dccp /bin/true
+        - blacklist dccp
+
+    - name: "3.4.1 | PATCH | Ensure DCCP is disabled | blacklist"
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/blacklist.conf
+        regexp: "^(#)?blacklist cramfs(\\s|$)"
+        line: "blacklist cramfs"
+        create: true
+        mode: '0600'
+
+  when:
+    - ubtu22cis_rule_3_4_1
+  tags:
+    - level2-server
+    - level2-workstation
+    - automated
+    - patch
+    - rule_3.4.1
+    - dccp
+
+- name: "3.4.2 | PATCH | Ensure SCTP is disabled"
+  block:
+    - name: "3.4.2 | PATCH | Ensure SCTP is disabled modprobe"
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/sctp.conf
+        regexp: '^(#)?install sctp(\\s|$)'
+        line: "{{ item }}"
+        create: true
+      loop:
+        - install sctp /bin/true
+        - blacklist sctp
+
+    - name: "3.4.2 | PATCH | Ensure SCTP is disabled | blacklist"
+      ansible.builtin.lineinfile:
+        path: /etc.modprobe.d/blacklist.conf
+        regexp: "^(#)?blacklist sctp(\\s|$)"
+        line: "blacklist sctp"
+        create: true
+        mode: '0600'
+
+  when:
+    - ubtu22cis_rule_3_4_2
+  tags:
+    - level2-server
+    - level2-workstation
+    - automated
+    - patch
+    - rule_3.4.2
+    - sctp
+
+- name: "3.4.3 | PATCH | Ensure RDS is disabled"
+  block:
+    - name: "3.4.3 | PATCH | Ensure RDS is disabled | modprobe"
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/rds.conf
+        regexp: '^(#)?install rds(\\s|$)'
+        line: "{{ item }}"
+        create: true
+      loop:
+        - install rds /bin/true
+        - blacklist rds
+
+    - name: "3.4.3 | PATCH | Ensure RDS is disabled | blacklist"
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/blacklist.conf
+        regexp: "^(#)?blacklist rds(\\s|$)"
+        line: "blacklist rds"
+        create: true
+        mode: '0600'
+  when:
+    - ubtu22cis_rule_3_4_3
+  tags:
+    - level2-server
+    - level2-workstation
+    - automated
+    - patch
+    - rule_3.4.3
+    - rds
+
+- name: "3.4.4 | PATCH | Ensure TIPC is disabled"
+  block:
+    - name: "3.4.4 | PATCH | Ensure TIPC is disabled | modprobe"
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/tipc.conf
+        regexp: '^(#)?install tipc(\\s|$)'
+        line: "{{ item }}"
+        create: true
+      loop:
+        - install tipc /bin/true
+        - blacklist tipc
+
+    - name: "3.4.4 | PATCH | Ensure TIPC is disabled | blacklist"
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/blacklist.conf
+        regexp: "^(#)?blacklist tipc(\\s|$)"
+        line: "blacklist tipc"
+        create: true
+        mode: '0600'
+
+  when:
+    - ubtu22cis_rule_3_4_4
+  tags:
+    - level2-server
+    - level2-workstation
+    - automated
+    - patch
+    - rule_3.4.4
+    - tipc
+
+- name: "3.5.1.1 | PATCH | Ensure ufw is installed"
+  ansible.builtin.package:
+      name: ufw
+      state: present
+  when:
+      - ubtu22cis_rule_3_5_1_1
+      - "'ufw' not in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5_1_1
+      - apt
+      - ufw
+
+- name: "3.5.1.2 | PATCH | Ensure iptables-persistent is not installed with ufw"
+  ansible.builtin.package:
+      name: iptables-persistent
+      state: absent
+  when:
+      - ubtu22cis_rule_3_5_1_2
+      - "'iptables-persistent' in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5.1.2
+      - ufw
+
+# Adding the allow OpenSSH rule while enabling ufw to allow ansible to run after enabling
+- name: "3.5.1.3 | PATCH | Ensure ufw service is enabled"
+  block:
+      - name: "3.5.1.3 | PATCH | Ensure ufw service is enabled | ssh port enabled"
+        community.general.ufw:
+            rule: allow
+            name: OpenSSH
+            state: enabled
+
+      - name: "3.5.1.3 | PATCH | Ensure ufw service is enabled | service"
+        ansible.builtin.systemd:
+            name: ufw
+            enabled: true
+            state: started
+            masked: false
+  when:
+      - ubtu22cis_rule_3_5_1_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5_1_3
+      - ufw
+
+- name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured"
+  block:
+      - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set allow in ufw rules"
+        community.general.ufw:
+            rule: allow
+            direction: in
+            interface: lo
+        notify: Reload ufw
+
+      - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set allow out ufw rules"
+        community.general.ufw:
+            rule: allow
+            direction: out
+            interface: lo
+        notify: Reload ufw
+
+      - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set deny ufw rules IPv4"
+        community.general.ufw:
+            rule: deny
+            direction: in
+            from_ip: 127.0.0.0/8
+        notify: Reload ufw
+
+      - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set deny ufw rules IPv6"
+        community.general.ufw:
+            rule: deny
+            direction: in
+            from_ip: '::1'
+        when: ubtu22cis_ipv6_required
+        notify: Reload ufw
+  when:
+      - ubtu22cis_rule_3_5_1_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5_1_4
+      - ufw
+
+- name: "3.5.1.5 | PATCH | Ensure ufw outbound connections are configured"
+  block:
+      - name: "3.5.1.5 | PATCH | Ensure ufw outbound connections are configured | Custom ports"
+        community.general.ufw:
+            rule: allow
+            direction: out
+            to_port: '{{ item }}'
+        with_items:
+            - "{{ ubtu22cis_ufw_allow_out_ports }}"
+        notify: Reload ufw
+        when: ubtu22cis_ufw_allow_out_ports != "all"
+
+      - name: "3.5.1.5 | PATCH | Ensure ufw outbound connections are configured | Allow all"
+        community.general.ufw:
+            rule: allow
+            direction: out
+        notify: Reload ufw
+        when: "'all' in ubtu22cis_ufw_allow_out_ports"
+  when:
+      - ubtu22cis_rule_3_5_1_5
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - rule_3.5_1_5
+      - ufw
+
+- name: "3.5.1.6 | AUDIT | Ensure ufw firewall rules exist for all open ports"
+  block:
+      - name: "3.5.1.6 | AUDIT | Ensure ufw firewall rules exist for all open ports | Get list of open ports"
+        ansible.builtin.shell: ss -4tuln
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_3_5_1_6_open_listen_ports
+
+      - name: "3.5.1.6 | AUDIT | Ensure ufw firewall rules exist for all open ports | Get list of firewall rules"
+        ansible.builtin.shell: ufw status
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_3_5_1_6_firewall_rules
+
+      - name: "3.5.1.6 | AUDIT | Ensure ufw firewall rules exist for all open ports | Message out settings"
+        ansible.builtin.debug:
+            msg:
+                - "Warning!! Below are the listening ports and firewall rules"
+                - "Please create firewall rule for any open ports if not already done"
+                - "*****---Open Listen Ports---*****"
+                - "{{ ubtu22cis_3_5_1_6_open_listen_ports.stdout_lines }}"
+                - "*****---Firewall Rules---*****"
+                - "{{ ubtu22cis_3_5_1_6_firewall_rules.stdout_lines }}"
+
+      - name: "3.5.1.6 | AUDIT | Ensure ufw firewall rules exist for all open ports | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.1.6'
+  when:
+      - ubtu22cis_rule_3_5_1_6
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - audit
+      - rule_3.5_1_6
+      - ufw
+
+- name: "3.5.1.7 | PATCH | Ensure ufw default deny firewall policy"
+  community.general.ufw:
+      default: deny
+      direction: "{{ item }}"
+  notify: Reload ufw
+  with_items:
+      - incoming
+      - outgoing
+      - routed
+  when:
+      - ubtu22cis_rule_3_5_1_7
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5_1_7
+      - ufw
+
+# ---------------
+# NFTables is unsupported with this role. However I have the actions commented out as a guide
+# ---------------
+- name: "3.5.2.1 | AUDIT | Ensure nftables is installed"
+  block:
+      - name: "3.5.2.1 | AUDIT | Ensure nftables is installed | Message out warning"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables"
+
+      - name: "3.5.2.1 | AUDIT | Ensure nftables is installed | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.1'
+  when:
+      - ubtu22cis_rule_3_5_2_1
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - audit
+      - rule_3.5.2.1
+      - nftables
+
+- name: "3.5.2.2 | AUDIT | Ensure ufw is uninstalled or disabled with nftables"
+  block:
+      - name: "3.5.2.2 | AUDIT | Ensure ufw is uninstalled or disabled with nftables | Message out warning"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables"
+            # ansible.builtin.package:
+            #     name: ufw
+            #     state: absent
+
+      - name: "3.5.2.2 | AUDIT | Ensure ufw is uninstalled or disabled with nftables | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.2'
+  when:
+      - ubtu22cis_rule_3_5_2_2
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - audit
+      - rule_3.5.2.2
+      - nftables
+
+- name: "3.5.2.3 | AUDIT | Ensure iptables are flushed with nftables"
+  block:
+      - name: "3.5.2.3 | AUDIT | Ensure iptables are flushed with nftables | Message out warning"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables"
+            # ansible.builtin.iptables:
+            #     flush: yes
+
+      - name: "3.5.2.3 | AUDIT | Ensure iptables are flushed with nftables | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.3'
+  when:
+      - ubtu22cis_rule_3_5_2_3
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - audit
+      - rule_3.5.2.3
+      - nftables
+
+- name: "3.5.2.4 | AUDIT | Ensure a nftables table exists"
+  block:
+      - name: "3.5.2.4 | AUDIT | Ensure a nftables table exists"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables | Message out warning"
+            # ansible.builtin.shell: "nft create table {{ ubtu22cis_nftables_table_name }}"
+            # changed_when: ubtu22cis_3_5_2_4_new_table.rc == 0
+            # failed_when: false
+            # check_mode: false
+            # register: ubtu22cis_3_5_2_4_new_table
+
+      - name: "3.5.2.4 | AUDIT | Ensure a nftables table exists | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.4'
+  when:
+      - ubtu22cis_rule_3_5_2_4
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5.2.4
+      - nftables
+
+- name: "3.5.2.5 | AUDIT | Ensure nftables base chains exist"
+  block:
+      - name: "3.5.2.5 | AUDIT | Ensure nftables base chains exist"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables | Message out warning"
+
+      - name: "3.5.2.5 | AUDIT | Ensure nftables base chains exist | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.5'
+  when:
+      - ubtu22cis_rule_3_5_2_5
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - audit
+      - rule_3.5.2.5
+      - nftables
+
+- name: "3.5.2.6 | AUDIT | Ensure nftables loopback traffic is configured"
+  block:
+      - name: "3.5.2.6 | AUDIT | Ensure nftables loopback traffic is configured | Message out warning"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables"
+
+      - name: "3.5.2.6 | AUDIT | Ensure nftables loopback traffic is configured | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.6'
+  when:
+      - ubtu22cis_rule_3_5_2_6
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - audit
+      - rule_3.5.2.6
+      - nftables
+
+- name: "3.5.2.7 | AUDIT | Ensure nftables outbound and established connections are configured"
+  block:
+      - name: "3.5.2.7 | AUDIT | Ensure nftables outbound and established connections are configured | Message out warning"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables"
+
+      - name: "3.5.2.7 | AUDIT | Ensure nftables outbound and established connections are configured | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.7'
+  when:
+      - ubtu22cis_rule_3_5_2_7
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - audit
+      - rule_3.5.2.7
+      - nftables
+
+- name: "3.5.2.8 | AUDIT | Ensure nftables default deny firewall policy"
+  block:
+      - name: "3.5.2.8 | AUDIT | Ensure nftables default deny firewall policy | Message out warning"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables"
+
+      - name: "3.5.2.8 | AUDIT | Ensure nftables default deny firewall policy | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.8'
+  when:
+      - ubtu22cis_rule_3_5_2_8
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - audit
+      - rule_3.5.2.8
+      - nftables
+
+- name: "3.5.2.9 | AUDIT | Ensure nftables service is enabled"
+  block:
+      - name: "3.5.2.9 | AUDIT | Ensure nftables service is enabled | Message out warning"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables"
+            # ansible.builtin.service:
+            #     name: nftables
+            #     state: started
+            #     enabled: yes
+
+      - name: "3.5.2.9 | AUDIT | Ensure nftables service is enabled | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.9'
+  when:
+      - ubtu22cis_rule_3_5_2_9
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - audit
+      - rule_3.5.2.9
+      - nftables
+
+- name: "3.5.2.10 | AUDIT | Ensure nftables rules are permanent"
+  block:
+      - name: "3.5.2.10 | AUDIT | Ensure nftables rules are permanent | Message out warning"
+        ansible.builtin.debug:
+            msg: "Warning!! NFTables is not supported in this role. Please use UFW, iptables, or manually manage nftables"
+
+      - name: "3.5.2.10 | AUDIT | Ensure nftables rules are permanent | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.2.10'
+  when:
+      - ubtu22cis_rule_3_5_2_10
+      - ubtu22cis_firewall_package == "nftables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - audit
+      - rule_3.5.2.10
+      - nftables
+
+- name: "3.5.3.1.1 | PATCH | Ensure iptables packages are installed"
+  ansible.builtin.package:
+      name: ['iptables', 'iptables-persistent']
+      state: present
+  when:
+      - ubtu22cis_rule_3_5_3_1_1
+      - ubtu22cis_firewall_package == "iptables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5.3.1.1
+      - iptables
+
+- name: "3.5.3.1.2 | PATCH | Ensure nftables is not installed with iptables"
+  ansible.builtin.package:
+      name: nftables
+      state: absent
+      purge: "{{ ubtu22cis_purge_apt }}"
+  when:
+      - ubtu22cis_rule_3_5_3_1_2
+      - ubtu22cis_firewall_package == "iptables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5.3.1.2
+      - iptables
+
+- name: "3.5.3.1.3 | PATCH | Ensure ufw is uninstalled or disabled with iptables"
+  ansible.builtin.package:
+      name: ufw
+      state: absent
+  when:
+      - ubtu22cis_rule_3_5_3_1_3
+      - ubtu22cis_firewall_package == "iptables"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5.3.1.3
+      - iptables
+
+- name: "3.5.3.2.1 | PATCH | Ensure iptables default deny firewall policy"
+  block:
+      - name: "3.5.3.2.1 | PATCH | Ensure iptables default deny firewall policy | Configure SSH to be allowed in"
+        ansible.builtin.iptables:
+            chain: INPUT
+            protocol: tcp
+            destination_port: 22
+            jump: ACCEPT
+            ctstate: 'NEW,ESTABLISHED'
+        notify: Iptables persistent
+
+      - name: "3.5.3.2.1 | PATCH | Ensure iptables default deny firewall policy | Configure SSH to be allowed out"
+        ansible.builtin.iptables:
+            chain: OUTPUT
+            protocol: tcp
+            source_port: 22
+            jump: ACCEPT
+            ctstate: 'NEW,ESTABLISHED'
+        notify: Iptables persistent
+
+      - name: "3.5.3.2.1 | PATCH | Ensure iptables default deny firewall policy | Enable apt traffic"
+        ansible.builtin.iptables:
+            chain: INPUT
+            ctstate: 'ESTABLISHED'
+            jump: ACCEPT
+        notify: Iptables persistent
+
+      - name: "3.5.3.2.1 | PATCH | Ensure iptables default deny firewall policy | Set drop items"
+        ansible.builtin.iptables:
+            policy: DROP
+            chain: "{{ item }}"
+        notify: Iptables persistent
+        with_items:
+            - INPUT
+            - FORWARD
+            - OUTPUT
+  when:
+      - ubtu22cis_rule_3_5_3_2_1
+      - ubtu22cis_ipv4_required
+      - not system_is_ec2
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5.3.2.1
+      - iptables
+
+- name: "3.5.3.2.2 | PATCH | Ensure iptables loopback traffic is configured"
+  block:
+      - name: "3.5.3.2.2 | PATCH | Ensure iptables loopback traffic is configured | INPUT loopback ACCEPT"
+        ansible.builtin.iptables:
+            action: append
+            chain: INPUT
+            in_interface: lo
+            jump: ACCEPT
+        notify: Iptables persistent
+
+      - name: "3.5.3.2.2 | PATCH | Ensure iptables loopback traffic is configured | OUTPUT loopback ACCEPT"
+        ansible.builtin.iptables:
+            action: append
+            chain: OUTPUT
+            out_interface: lo
+            jump: ACCEPT
+        notify: Iptables persistent
+
+      - name: "3.5.3.2.2 | PATCH | Ensure iptables loopback traffic is configured | OUTPUT loopback ACCEPT"
+        ansible.builtin.iptables:
+            action: append
+            chain: INPUT
+            source: 127.0.0.0/8
+            jump: DROP
+        notify: Iptables persistent
+  when:
+      - ubtu22cis_rule_3_5_3_2_2
+      - ubtu22cis_firewall_package == "iptables"
+      - ubtu22cis_ipv4_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5.3.2.2
+      - iptables
+
+- name: "3.5.3.2.3 | PATCH | Ensure iptables outbound and established connections are configured"
+  ansible.builtin.iptables:
+      action: append
+      chain: '{{ item.chain }}'
+      protocol: '{{ item.protocol }}'
+      match: state
+      ctstate: '{{ item.ctstate }}'
+      jump: ACCEPT
+  notify: Iptables persistent
+  with_items:
+      - { chain: OUTPUT, protocol: tcp, ctstate: 'NEW,ESTABLISHED' }
+      - { chain: OUTPUT, protocol: udp, ctstate: 'NEW,ESTABLISHED' }
+      - { chain: OUTPUT, protocol: icmp, ctstate: 'NEW,ESTABLISHED' }
+      - { chain: INPUT, protocol: tcp, ctstate: 'ESTABLISHED' }
+      - { chain: INPUT, protocol: udp, ctstate: 'ESTABLISHED' }
+      - { chain: INPUT, protocol: icmp, ctstate: 'ESTABLISHED' }
+  when:
+      - ubtu22cis_rule_3_5_3_2_3
+      - ubtu22cis_firewall_package == "iptables"
+      - ubtu22cis_ipv4_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - rule_3.5.3.2.3
+      - iptables
+
+- name: "3.5.3.2.4 | AUDIT | Ensure iptables firewall rules exist for all open ports"
+  block:
+      - name: "3.5.3.2.4 | AUDIT | Ensure iptables firewall rules exist for all open ports | Get list of open ports"
+        ansible.builtin.shell: ss -4tuln
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_3_5_3_2_4_open_ports
+
+      - name: "3.5.3.2.4 | AUDIT | Ensure iptables firewall rules exist for all open ports | Get list of rules"
+        ansible.builtin.shell: iptables -L INPUT -v -n
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_3_5_3_2_4_current_rules
+
+      - name: "3.5.3.2.4 | AUDIT | Ensure iptables firewall rules exist for all open ports | Warn about settings"
+        ansible.builtin.debug:
+            msg:
+                - "Warning!! Below is the list the open ports and current rules"
+                - "Please create a rule for any open port that does not have a current rule"
+                - "Open Ports:"
+                - "{{ ubtu22cis_3_5_3_2_4_open_ports.stdout_lines }}"
+                - "Current Rules:"
+                - "{{ ubtu22cis_3_5_3_2_4_current_rules.stdout_lines }}"
+
+      - name: "3.5.3.2.4 | AUDIT | Ensure iptables firewall rules exist for all open ports | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.3.2.4'
+  when:
+      - ubtu22cis_rule_3_5_3_2_4
+      - ubtu22cis_firewall_package == "iptables"
+      - ubtu22cis_ipv4_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - audit
+      - rule_3.5.3.2.4
+      - iptables
+
+# ---------------
+# ---------------
+# This is not a control however using the iptables module only writes to memory
+# if a reboot occurs that means changes can revert. This task will make the
+# above iptables settings permanent
+# ---------------
+# ---------------
+# - name: "Make IPTables persistent | Not a control"
+#   block:
+#       - name: "Make IPTables persistent | Install iptables-persistent"
+#         ansible.builtin.package:
+#             name: iptables-persistent
+#             state: present
+
+#       - name: "Make IPTables persistent | Save to persistent files"
+#         ansible.builtin.shell: bash -c "iptables-save > /etc/iptables/rules.v4"
+#         changed_when: ubtu22cis_iptables_save.rc == 0
+#         failed_when: ubtu22cis_iptables_save.rc > 0
+#         register: ubtu22cis_iptables_save
+#   when:
+#       - ubtu22cis_firewall_package == "iptables"
+#       - ubtu22cis_save_iptables_cis_rules
+#       - ubtu22cis_rule_3_5_3_2_1 or
+#         ubtu22cis_rule_3_5_3_2_2 or
+#         ubtu22cis_rule_3_5_3_2_3 or
+#         ubtu22cis_rule_3_5_3_2_4
+
+- name: "3.5.3.3.1 | PATCH | Ensure ip6tables default deny firewall policy"
+  block:
+      - name: "3.5.3.3.1 | PATCH | Ensure ip6tables default deny firewall policy | Configure SSH to be allowed out"
+        ansible.builtin.iptables:
+            chain: OUTPUT
+            protocol: tcp
+            source_port: 22
+            jump: ACCEPT
+            ctstate: 'NEW,ESTABLISHED'
+            ip_version: ipv6
+        notify: Ip6tables persistent
+
+      - name: "3.5.3.3.1 | PATCH | Ensure ip6tables default deny firewall policy | Enable apt traffic"
+        ansible.builtin.iptables:
+            chain: INPUT
+            ctstate: 'ESTABLISHED'
+            jump: ACCEPT
+            ip_version: ipv6
+        notify: Ip6tables persistent
+
+      - name: "3.5.3.3.1 | PATCH | Ensure ip6tables default deny firewall policy | Set drop items"
+        ansible.builtin.iptables:
+            policy: DROP
+            chain: "{{ item }}"
+            ip_version: ipv6
+        notify: Ip6tables persistent
+        with_items:
+            - INPUT
+            - FORWARD
+            - OUTPUT
+  when:
+      - ubtu22cis_rule_3_5_3_3_1
+      - ubtu22cis_ipv6_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5.3.3.1
+      - ip6tables
+
+- name: "3.5.3.3.2 | PATCH | Ensure ip6tables loopback traffic is configured"
+  block:
+      - name: "3.5.3.3.2 | PATCH | Ensure ip6tables loopback traffic is configured | INPUT loopback ACCEPT"
+        ansible.builtin.iptables:
+            action: append
+            chain: INPUT
+            in_interface: lo
+            jump: ACCEPT
+            ip_version: ipv6
+        notify: Ip6tables persistent
+
+      - name: "3.5.3.3.2 | PATCH | Ensure ip6tables loopback traffic is configured | OUTPUT loopback ACCEPT"
+        ansible.builtin.iptables:
+            action: append
+            chain: OUTPUT
+            out_interface: lo
+            jump: ACCEPT
+            ip_version: ipv6
+        notify: Ip6tables persistent
+
+      - name: "3.5.3.3.2 | PATCH | Ensure ip6tables loopback traffic is configured | INPUT loopback drop"
+        ansible.builtin.iptables:
+            action: append
+            chain: INPUT
+            source: ::1
+            jump: DROP
+            ip_version: ipv6
+        notify: Ip6tables persistent
+  when:
+      - ubtu22cis_rule_3_5_3_3_2
+      - ubtu22cis_firewall_package == "iptables"
+      - ubtu22cis_ipv6_required
+      - not ubtu22cis_ipv4_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_3.5.3.3.2
+      - ip6tables
+
+- name: "3.5.3.3.3 | PATCH | Ensure ip6tables outbound and established connections are configured"
+  ansible.builtin.iptables:
+      action: append
+      chain: '{{ item.chain }}'
+      protocol: '{{ item.protocol }}'
+      match: state
+      ctstate: '{{ item.ctstate }}'
+      jump: ACCEPT
+      ip_version: ipv6
+  notify: Ip6tables persistent
+  with_items:
+      - { chain: OUTPUT, protocol: tcp, ctstate: 'NEW,ESTABLISHED' }
+      - { chain: OUTPUT, protocol: udp, ctstate: 'NEW,ESTABLISHED' }
+      - { chain: OUTPUT, protocol: icmp, ctstate: 'NEW,ESTABLISHED' }
+      - { chain: INPUT, protocol: tcp, ctstate: 'ESTABLISHED' }
+      - { chain: INPUT, protocol: udp, ctstate: 'ESTABLISHED' }
+      - { chain: INPUT, protocol: icmp, ctstate: 'ESTABLISHED' }
+  when:
+      - ubtu22cis_rule_3_5_3_3_3
+      - ubtu22cis_firewall_package == "iptables"
+      - ubtu22cis_ipv6_required
+      - not ubtu22cis_ipv4_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - rule_3.5.3.3.3
+      - ip6tables
+
+- name: "3.5.3.3.4 | AUDIT | Ensure ip6tables firewall rules exist for all open ports"
+  block:
+      - name: "3.5.3.3.4 | AUDIT | Ensure ip6tables firewall rules exist for all open ports | Get list of open ports"
+        ansible.builtin.shell: ss -6tuln
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_3_5_3_3_4_open_ports
+
+      - name: "3.5.3.3.4 | AUDIT | Ensure ip6tables firewall rules exist for all open ports | Get list of rules"
+        ansible.builtin.shell: ip6tables -L INPUT -v -n
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_3_5_3_3_4_current_rules
+
+      - name: "3.5.3.3.4 | AUDIT | Ensure ip6tables firewall rules exist for all open ports | Warn about settings"
+        ansible.builtin.debug:
+            msg:
+                - "Warning!! Below is the list the open ports and current rules"
+                - "Please create a rule for any open port that does not have a current rule"
+                - "Open Ports:"
+                - "{{ ubtu22cis_3_5_3_3_4_open_ports.stdout_lines }}"
+                - "Current Rules:"
+                - "{{ ubtu22cis_3_5_3_3_4_current_rules.stdout_lines }}"
+
+      - name: "3.5.3.3.4 | AUDIT | Ensure ip6tables firewall rules exist for all open ports | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+  vars:
+      warn_control_id: '3.5.3.3.4'
+  when:
+      - ubtu22cis_rule_3_5_3_3_4
+      - ubtu22cis_firewall_package == "iptables"
+      - ubtu22cis_ipv6_required
+      - not ubtu22cis_ipv4_required
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - audit
+      - rule_3.5.3.3.4
+
+# ---------------
+# ---------------
+# This is not a control however using the ip6tables module only writes to memory
+# if a reboot occurs that means changes can revert. This task will make the
+# above ip6tables settings permanent
+# ---------------
+# ---------------
+# via handler
+# - name: "Make IP6Tables persistent | Not a control"
+#   block:
+#       - name: "Make IP6Tables persistent | Install iptables-persistent"
+#         ansible.builtin.package:
+#             name: iptables-persistent
+#             state: present
+#         when: "'iptables-persistent' not in ansible_facts.packages"
+
+#       - name: "Make IP6Tables persistent | Save to persistent files"
+#         ansible.builtin.shell: bash -c "ip6tables-save > /etc/iptables/rules.v6"
+#         changed_when: ubtu22cis_ip6tables_save.rc == 0
+#         failed_when: ubtu22cis_ip6tables_save.rc > 0
+#         register: ubtu22cis_ip6tables_save
+#   when:
+#       - ubtu22cis_firewall_package == "iptables"
+#       - ubtu22cis_ipv6_required
+#       - not ubtu22cis_ipv4_required
+#       - ubtu22cis_save_iptables_cis_rules
+#       - ubtu22cis_rule_3_5_3_3_1 or
+#         ubtu22cis_rule_3_5_3_3_2 or
+#         ubtu22cis_rule_3_5_3_3_3 or
+#         ubtu22cis_rule_3_5_3_3_4
+
+- name: "4.1.1.1 | PATCH | Ensure auditd is installed"
+  ansible.builtin.package:
+      name: ['auditd', 'audispd-plugins']
+      state: present
+  when:
+      - ubtu22cis_rule_4_1_1_1
+      - "'auditd' not in ansible_facts.packages or 'auditd-plugins' not in ansible_facts.packages"
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.1.1
+      - auditd
+
+- name: "4.1.1.2 | PATCH | Ensure auditd service is enabled"
+  ansible.builtin.service:
+      name: auditd
+      state: started
+      enabled: true
+  when:
+      - ubtu22cis_rule_4_1_1_2
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.1.2
+      - auditd
+
+- name: "4.1.1.3 | PATCH | Ensure auditing for processes that start prior to auditd is enabled"
+  block:
+      - name: "4.1.1.3 | AUDIT | Ensure auditing for processes that start prior to auditd is enabled | Get GRUB_CMDLINE_LINUX"
+        ansible.builtin.shell: grep "GRUB_CMDLINE_LINUX=" /etc/default/grub | cut -f2 -d'"'
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_4_1_1_3_cmdline_settings
+
+      - name: "4.1.1.3 | PATCH | Ensure auditing for processes that start prior to auditd is enabled | Add setting if doesn't exist"
+        ansible.builtin.lineinfile:
+            path: /etc/default/grub
+            regexp: '^GRUB_CMDLINE_LINUX='
+            line: 'GRUB_CMDLINE_LINUX="{{ ubtu22cis_4_1_1_3_cmdline_settings.stdout }} audit=1"'
+        when: "'audit=' not in ubtu22cis_4_1_1_3_cmdline_settings.stdout"
+        notify: Grub update
+
+      - name: "4.1.1.3 | PATCH | Ensure auditing for processes that start prior to auditd is enabled | Update setting if exists"
+        ansible.builtin.replace:
+            dest: /etc/default/grub
+            regexp: 'audit=([0-9]+)'
+            replace: 'audit=1'
+            after: '^GRUB_CMDLINE_LINUX="'
+            before: '"'
+        notify: Grub update
+        when: "'audit=' in ubtu22cis_4_1_1_3_cmdline_settings.stdout"
+  when:
+      - ubtu22cis_rule_4_1_1_3
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4_1_1_3
+      - auditd
+
+- name: "4.1.1.4 | PATCH | Ensure audit_backlog_limit is sufficient"
+  block:
+      - name: "4.1.1.4 | PATCH | Ensure audit_backlog_limit is sufficient | Get current GRUB_CMDLINE_LINUX"
+        ansible.builtin.shell: grep "GRUB_CMDLINE_LINUX=" /etc/default/grub | cut -f2 -d'"'
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_4_1_1_4_cmdline_settings
+
+      - name: "4.1.1.4 | PATCH | Ensure audit_backlog_limit is sufficient | Add setting if doesn't exist"
+        ansible.builtin.lineinfile:
+            path: /etc/default/grub
+            regexp: '^GRUB_CMDLINE_LINUX='
+            line: 'GRUB_CMDLINE_LINUX="{{ ubtu22cis_4_1_1_4_cmdline_settings.stdout }} audit_backlog_limit={{ ubtu22cis_audit_back_log_limit }}"'
+        notify: Grub update
+        when: "'audit_backlog_limit=' not in ubtu22cis_4_1_1_4_cmdline_settings.stdout"
+
+      - name: "4.1.1.4 | PATCH | Ensure audit_backlog_limit is sufficient | Update setting if exists"
+        ansible.builtin.replace:
+            dest: /etc/default/grub
+            regexp: 'audit_backlog_limit=([0-9]+)'
+            replace: 'audit_backlog_limit={{ ubtu22cis_audit_back_log_limit }}'
+            after: '^GRUB_CMDLINE_LINUX="'
+            before: '"'
+        notify: Grub update
+  when:
+      - ubtu22cis_rule_4_1_1_4
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4_1_1_4
+      - auditd
+
+- name: "4.1.2.1 | PATCH | Ensure audit log storage size is configured"
+  ansible.builtin.lineinfile:
+      dest: /etc/audit/auditd.conf
+      regexp: "^max_log_file( |=)"
+      line: "max_log_file = {{ ubtu22cis_max_log_file_size }}"
+      state: present
+  register: rule_4_1_2_1
+  notify: Restart auditd
+  when:
+      - ubtu22cis_rule_4_1_2_1
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.2.1
+      - auditd
+
+- name: "4.1.2.2 | PATCH | Ensure audit logs are not automatically deleted"
+  ansible.builtin.lineinfile:
+      path: /etc/audit/auditd.conf
+      regexp: '^max_log_file_action'
+      line: "max_log_file_action = {{ ubtu22cis_auditd['max_log_file_action'] }}"
+  register: rule_4_1_2_2
+  notify: Restart auditd
+  when:
+      - ubtu22cis_rule_4_1_2_2
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.2.2
+      - auditd
+
+- name: "4.1.2.3 | PATCH | Ensure system is disabled when audit logs are full"
+  ansible.builtin.lineinfile:
+      path: /etc/audit/auditd.conf
+      regexp: "{{ item.regexp }}"
+      line: "{{ item.line }}"
+  register: rule_4_1_2_3
+  notify: Restart auditd
+  with_items:
+      - { regexp: '^space_left_action', line: "space_left_action = {{ ubtu22cis_auditd['space_left_action'] }}" }
+      - { regexp: '^action_mail_acct', line: "action_mail_acct = {{ ubtu22cis_auditd['action_mail_acct'] }}" }
+      - { regexp: '^admin_space_left_action', line: "admin_space_left_action = {{ ubtu22cis_auditd['admin_space_left_action'] }}" }
+  when:
+      - ubtu22cis_rule_4_1_2_3
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.2.3
+      - auditd
+
+- name: "4.1.3.1 | PATCH | Ensure changes to system administration scope (sudoers) is collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_1
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.1
+      - auditd
+
+- name: "4.1.3.2 | PATCH | Ensure actions as another user are always logged"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  notify: restart auditd
+  when:
+      - ubtu22cis_rule_4_1_3_2
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1_3.2
+      - auditd
+
+- name: "4.1.3.3 | PATCH | Ensure events that modify the sudo log file are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  notify: restart auditd
+  when:
+      - ubtu22cis_rule_4_1_3_3
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.3
+      - auditd
+
+- name: "4.1.3.4 | PATCH | Ensure events that modify date and time information are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_4
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.4
+      - auditd
+
+- name: "4.1.3.5 | PATCH | Ensure events that modify the system's network environment are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_5
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.5
+      - auditd
+
+- name: "4.1.3.6 | PATCH | Ensure use of privileged commands is collected"
+  block:
+      - name: "4.1.3.6 | AUDIT | Ensure use of privileged commands is collected | Get list of privileged programs"
+        ansible.builtin.shell: for i in  $(findmnt -n -l -k -it $(awk '/nodev/ { print $2 }' /proc/filesystems | paste -sd,) | grep -Pv "noexec|nosuid" | awk '{print $1}'); do find $i -xdev -type f -perm -4000 -o -type f -perm -2000 2>/dev/null; done
+        register: priv_procs
+        changed_when: false
+        check_mode: false
+
+      - name: "4.1.3.6 | PATCH | Ensure use of privileged commands is collected | Set privileged rules"
+        ansible.builtin.set_fact:
+            update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_6
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.6
+      - auditd
+
+- name: "4.1.3.7 | PATCH | Ensure unsuccessful unauthorized file access attempts are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_7
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.7
+      - auditd
+
+- name: "4.1.3.8 | PATCH | Ensure events that modify user/group information are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_8
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.8
+      - auditd
+
+- name: "4.1.3.9 | PATCH | Ensure discretionary access control permission modification events are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_9
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.9
+      - auditd
+
+- name: "4.1.3.10 | PATCH | Ensure successful file system mounts are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      ubtu22cis_rule_4_1_3_10
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.10
+      - auditd
+
+- name: "4.1.3.11 | PATCH | Ensure session initiation information is collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_11
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.11
+      - auditd
+
+- name: "4.1.3.12 | PATCH | Ensure login and logout events are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_12
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.12
+      - auditd
+
+- name: "4.1.3.13 | PATCH | Ensure file deletion events by users are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_13
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.13
+      - auditd
+
+- name: "4.1.3.14 | PATCH | Ensure events that modify the system's Mandatory Access Controls are collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_14
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.14
+      - auditd
+
+- name: "4.1.3.15 | PATCH | Ensure successful and unsuccessful attempts to use the chcon command are recorded"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_15
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.15
+      - auditd
+
+- name: "4.1.3.16 | PATCH | Ensure successful and unsuccessful attempts to use the setfacl command are recorded"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_16
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.16
+      - auditd
+
+- name: "4.1.3.17 | PATCH | Ensure successful and unsuccessful attempts to use the chacl command are recorded"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_17
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.17
+      - auditd
+
+- name: "4.1.3.18 | PATCH | Ensure successful and unsuccessful attempts to use the usermod command are recorded"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_18
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.18
+      - auditd
+
+- name: "4.1.3.19 | PATCH | Ensure kernel module loading and unloading is collected"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_19
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_4.1.3.19
+      - auditd
+
+- name: "4.1.3.20 | PATCH | Ensure the audit configuration is immutable"
+  ansible.builtin.set_fact:
+      update_audit_template: true
+  when:
+      - ubtu22cis_rule_4_1_3_20
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - scored
+      - patch
+      - rule_4.1.3.20
+      - auditd
+
+- name: "4.1.3.21 | PATCH | Ensure the running and on disk configuration is the same"
+  ansible.builtin.shell: augenrules --check
+  changed_when: false
+  register: ubtu22cis_rule_4_1_3_21_augen_check
+  when:
+      - ubtu22cis_rule_4_1_3_21
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - scored
+      - patch
+      - rule_4.1.3.21
+      - auditd
+
+# Define the variable for audit configuration files
+- name: "Define audit configuration files"
+  set_fact:
+    auditd_conf_files:
+      files:
+        - path: /etc/audit/auditd.conf
+        - path: /etc/audit/audit.rules
+        - path: /etc/audit/rules.d/
+
+- name: "Stat audit configuration files"
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  register: audit_conf_file_stats
+  loop: "{{ auditd_conf_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: |
+      "4.1.4.1 | PATCH | Ensure audit log files are mode 0640 or less permissive"
+      "4.1.4.2 | PATCH | Ensure only authorized users own audit log files"
+      "4.1.4.3 | PATCH | Ensure only authorized groups are assigned ownership of audit log files"
+  block:
+      - name: "4.1.4.1 | AUDIT | Ensure audit log files are mode 0640 or less permissive | discover file"
+        ansible.builtin.shell: grep ^log_file /etc/audit/auditd.conf | awk '{ print $NF }'
+        changed_when: false
+        register: audit_discovered_logfile
+
+      - name: "4.1.4.1 | AUDIT | Ensure audit log files are mode 0640 or less permissive | stat file"
+        ansible.builtin.stat:
+            path: "{{ audit_discovered_logfile.stdout }}"
+        changed_when: false
+        register: auditd_logfile
+
+      - name: |
+            "4.1.4.1 | PATCH | Ensure audit log files are mode 0640 or less permissive"
+            "4.1.4.2 | PATCH | Ensure only authorized users own audit log files"
+            "4.1.4.3 | PATCH | Ensure only authorized groups are assigned ownership of audit log files"
+        ansible.builtin.file:
+            path: "{{ audit_discovered_logfile.stdout }}"
+            mode: "{% if auditd_logfile.stat.mode > '0640' %}0640{% endif %}"
+            owner: root
+            group: root
+  when:
+      - ubtu22cis_rule_4_1_4_1 or
+        ubtu22cis_rule_4_1_4_2 or
+        ubtu22cis_rule_4_1_4_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - auditd
+      - rule_4.1.4.1
+      - rule_4.1.4.2
+      - rule_4.1.4.3
+
+- name: "4.1.4.4 | PATCH | Ensure the audit log directory is 0750 or more restrictive"
+  block:
+      - name: "4.1.4.4 | AUDIT | Ensure the audit log directory is 0750 or more restrictive | get current permissions"
+        ansible.builtin.stat:
+            path: "{{ audit_discovered_logfile.stdout | dirname }}"
+        register: auditlog_dir
+
+      - name: "4.1.4.4 | PATCH | Ensure the audit log directory is 0750 or more restrictive | set"
+        ansible.builtin.file:
+            path: "{{ audit_discovered_logfile.stdout | dirname }}"
+            state: directory
+            mode: '0750'
+        when: not auditlog_dir.stat.mode is match('07(0|5)0')
+  when:
+      - ubtu22cis_rule_4_1_4_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - auditd
+      - rule_4.1.4.4
+
+- name: "4.1.4.5 | PATCH | Ensure audit configuration files are 640 or more restrictive"
+  ansible.builtin.file:
+      path: "{{ item.stat.path }}"
+      mode: '0640'
+  loop: "{{ audit_conf_file_stats.results }}"
+  loop_control:
+      label: "{{ item.stat.path }}"
+  when:
+      - ubtu22cis_rule_4_1_4_5
+      - item.stat.mode is not match('0640')
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - auditd
+      - rule_4.1.4.5
+
+- name: "4.1.4.6 | PATCH | Ensure audit configuration files are owned by root"
+  ansible.builtin.file:
+      path: "{{ item.stat.path }}"
+      owner: root
+  loop: "{{ audit_conf_file_stats.results }}"
+  loop_control:
+      label: "{{ item.stat.path }}"
+  when:
+      - ubtu22cis_rule_4_1_4_6
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - auditd
+      - rule_4.1.4.6
+
+- name: "4.1.4.7 | PATCH | Ensure audit configuration files belong to group root"
+  ansible.builtin.file:
+      path: "{{ item.stat.path }}"
+      group: root
+  loop: "{{ audit_conf_file_stats.results }}"
+  loop_control:
+      label: "{{ item.stat.path }}"
+  when:
+      - ubtu22cis_rule_4_1_4_7
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - auditd
+      - rule_4.1.4.7
+
+- name: "4.1.4.8 | PATCH | Ensure audit tools are 755 or more restrictive"
+  block:
+      - name: "4.1.4.8 | AUDIT | Get audit binary file stat | get current mode"
+        ansible.builtin.stat:
+            path: "{{ item }}"
+        register: audit_bins
+        loop:
+            - /sbin/auditctl
+            - /sbin/aureport
+            - /sbin/ausearch
+            - /sbin/autrace
+            - /sbin/auditd
+            - /sbin/augenrules
+
+      - name: "4.1.4.8 | PATCH | Ensure audit tools are 755 or more restrictive | set if required"
+        ansible.builtin.file:
+            path: "{{ item.item }}"
+            mode: '0750'
+        loop: "{{ audit_bins.results }}"
+        loop_control:
+            label: "{{ item.item }}"
+        when: not item.stat.mode is match('07(0|5)0')
+  when:
+      - ubtu22cis_rule_4_1_4_8
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - auditd
+      - rule_4.1.4.8
+
+- name: "4.1.4.9 | PATCH | Ensure audit tools are owned by root"
+  ansible.builtin.file:
+      path: "{{ item }}"
+      owner: root
+      group: root
+  loop:
+      - /sbin/auditctl
+      - /sbin/aureport
+      - /sbin/ausearch
+      - /sbin/autrace
+      - /sbin/auditd
+      - /sbin/augenrules
+  when:
+      - ubtu22cis_rule_4_1_4_9
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - auditd
+      - rule_4.1.4.9
+
+- name: "4.1.4.10 | PATCH | Ensure audit tools belong to group root"
+  ansible.builtin.file:
+      path: "{{ item }}"
+      group: root
+  loop:
+      - /sbin/auditctl
+      - /sbin/aureport
+      - /sbin/ausearch
+      - /sbin/autrace
+      - /sbin/auditd
+      - /sbin/augenrules
+  when:
+      - ubtu22cis_rule_4_1_4_10
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - auditd
+      - rule_4.1.4.10
+
+- name: "4.1.4.11 | PATCH | Ensure cryptographic mechanisms are used to protect the integrity of audit tools"
+  ansible.builtin.lineinfile:
+      path: /etc/aide/aide.conf
+      regexp: "{{ item }}"
+      line: "{{ item }}"
+  loop:
+      - '# Audit tools'
+      - /sbin/auditctl p+i+n+u+g+s+b+acl+xattrs+sha512
+      - /sbin/aureport p+i+n+u+g+s+b+acl+xattrs+sha512
+      - /sbin/ausearch p+i+n+u+g+s+b+acl+xattrs+sha512
+      - /sbin/autrace p+i+n+u+g+s+b+acl+xattrs+sha512
+      - /sbin/auditd p+i+n+u+g+s+b+acl+xattrs+sha512
+      - /sbin/augenrules p+i+n+u+g+s+b+acl+xattrs+sha512
+  when:
+      - ubtu22cis_rule_4_1_4_11 and
+        ubtu22cis_config_aide
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - auditd
+      - rule_4.1.4.11
+
+- name: "4.2.1.1.1 | PATCH | Ensure systemd-journal-remote is installed"
+  ansible.builtin.package:
+      name: systemd-journal-remote
+      state: present
+  when:
+      - ubtu22cis_rule_4_2_1_1_1
+      - not ubtu22cis_system_is_log_server
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - journald
+      - rule_4.2.1.1.1
+
+- name: "4.2.1.1.2 | PATCH | Ensure systemd-journal-remote is configured"
+  ansible.builtin.lineinfile:
+      path: /etc/systemd/journal-upload.conf
+      regexp: "{{ item.regexp }}"
+      line: "{{ item.line }}"
+  notify: Restart journald
+  loop:
+      - { regexp: 'URL=', line: 'URL={{ ubtu22cis_remote_log_server }}'}
+      - { regexp: 'ServerKeyFile=', line: 'ServerKeyFile={{ ubtu22cis_journal_upload_serverkeyfile }}'}
+      - { regexp: 'ServerCertificateFile=', line: 'ServerCertificateFile={{ ubtu22cis_journal_servercertificatefile }}'}
+      - { regexp: 'TrustedCertificateFile=', line: 'TrustedCertificateFile={{ ubtu22cis_journal_trustedcertificatefile }}'}
+  when:
+      - ubtu22cis_rule_4_2_1_1_2
+      - not ubtu22cis_system_is_log_server
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - journald
+      - rule_4.2.1.1.2
+
+- name: "4.2.1.1.3 | PATCH | Ensure systemd-journal-remote is enabled"
+  ansible.builtin.systemd:
+      name: systemd-journal-upload
+      state: started
+      enabled: true
+  when:
+      - not ubtu22cis_system_is_log_server
+      - ubtu22cis_rule_4_2_1_1_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - journald
+      - rule_4.2.1.1.3
+
+- name: "4.2.1.1.4 | PATCH | Ensure journald is not configured to receive logs from a remote client"
+  ansible.builtin.systemd:
+      name: systemd-journal-remote.socket
+      state: stopped
+      enabled: false
+      masked: true
+  when:
+      - not ubtu22cis_system_is_log_server
+      - ubtu22cis_rule_4_2_1_1_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - journald
+      - rule_4.2.1.1.4
+
+- name: "4.2.1.2 | PATCH | Ensure journald service is enabled"
+  block:
+      - name: "4.2.1.2 | AUDIT | Ensure journald service is enabled | Capture status"
+        ansible.builtin.shell: systemctl is-enabled systemd-journald.service
+        changed_when: false
+        failed_when: false
+        register: ubtu22cis_4_2_1_2_status
+
+      - name: "4.2.1.2 | AUDIT | Ensure journald service is enabled | Alert on bad status"
+        ansible.builtin.debug:
+            msg:
+                - "Warning!! The status of systemd-journald should be static and it is not. Please investigate"
+        when: "'static' not in ubtu22cis_4_2_1_2_status.stdout"
+
+      - name: "4.2.1.2 | AUDIT | Ensure journald service is enabled | Warn Count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+        when: "'static' not in ubtu22cis_4_2_1_2_status.stdout"
+  vars:
+      warn_control_id: '4.2.1.2'
+  when:
+      - ubtu22cis_rule_4_2_1_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - audit
+      - journald
+      - rule_4_2_1_2
+
+- name: "4.2.1.3 | PATCH | Ensure journald is configured to compress large log files"
+  ansible.builtin.lineinfile:
+      path: /etc/systemd/journald.conf
+      regexp: '^(#|)Compress='
+      line: Compress=yes
+  notify: Restart journald
+  when:
+      - ubtu22cis_rule_4_2_1_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - journald
+      - rule_4_2_1_3
+
+- name: "4.2.1.4 | PATCH | Ensure journald is configured to write logfiles to persistent disk"
+  ansible.builtin.lineinfile:
+      path: /etc/systemd/journald.conf
+      regexp: '^(#|)Storage='
+      line: Storage=persistent
+  notify: Restart journald
+  when:
+      - ubtu22cis_rule_4_2_1_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - journald
+      - rule_4_2_1_4
+
+- name: "4.2.1.5 | PATCH | Ensure journald is not configured to send logs to rsyslog"
+  ansible.builtin.lineinfile:
+      path: /etc/systemd/journald.conf
+      regexp: '^ForwardToSyslog='
+      line: '#ForwardToSyslog=yes'
+  notify: Restart journald
+  when:
+      - ubtu22cis_rule_4_2_1_5
+  tags:
+      - level1-server
+      - level2-workstation
+      - manual
+      - patch
+      - journald
+      - rule_4_2_1_5
+
+- name: "4.2.1.6 | PATCH | Ensure journald log rotation is configured per site policy"
+  ansible.builtin.lineinfile:
+      path: /etc/systemd/journald.conf
+      regexp: "{{ item.regexp }}"
+      line: "{{ item.line }}"
+  notify: Restart journald
+  loop:
+      - { regexp: '^(#|\s+)SystemMaxUse=', line: "{{ ubtu22cis_journald_systemmaxuse }}" }
+      - { regexp: '^(#|\s+)SystemKeepFree=', line: "{{ ubtu22cis_journald_systemkeepfree }}" }
+      - { regexp: '^(#|\s+)RuntimeMaxUse=', line: "{{ ubtu22cis_journald_runtimemaxuse }}" }
+      - { regexp: '^(#|\s+)RuntimeKeepFree=', line: "{{ ubtu22cis_journald_runtimekeepfree }}" }
+      - { regexp: '^(#|\s+)MaxFileSec=', line: "{{ ubtu22cis_journald_maxfilesec }}" }
+  when:
+      - ubtu22cis_rule_4_2_1_6
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - journald
+      - rule_4_2_1_6
+
+- name: "4.2.1.7 | AUDIT | Ensure journald default file permissions configured"
+  block:
+      - name: "4.2.1.7 | AUDIT | Ensure journald default file permissions configured | Check for override file"
+        ansible.builtin.stat:
+            path: /etc/tmpfiles.d/systemd.conf
+        register: ubtu22cis_4_2_1_7_override
+
+      - name: "4.2.1.7 | AUDIT | Ensure journald default file permissions configured | Set live file"
+        ansible.builtin.set_fact:
+            systemd_conf_file: /etc/tmpfiles.d/systemd.conf
+        when: ubtu22cis_4_2_1_7_override.stat.exists
+
+      - name: "4.2.1.7 | PATCH | Ensure journald default file permissions configured | Set permission"
+        ansible.builtin.lineinfile:
+            path: "{{ systemd_conf_file | default('/usr/lib/tmpfiles.d/systemd.conf') }}"
+            regexp: '^z \/var\/log\/journal\/%m\/system.journal (!?06(0|4)0) root'
+            line: 'z /var/log/journal/%m/system.journal 0640 root systemd-journal - -'
+  when:
+      - ubtu22cis_rule_4_2_1_7
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - journald
+      - rule_4_2_1_7
+
+- name: "4.2.2.1 | PATCH | Ensure rsyslog is installed"
+  ansible.builtin.package:
+      name: rsyslog
+      state: present
+  when:
+      - ubtu22cis_rule_4_2_2_1
+      - "'rsyslog' not in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_4_2_2_1
+      - rsyslog
+      - apt
+
+- name: "4.2.2.2 | PATCH | Ensure rsyslog Service is enabled"
+  ansible.builtin.systemd:
+      name: rsyslog
+      enabled: true
+  when:
+      - ubtu22cis_rule_4_2_2_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_4_2_2_2
+      - rsyslog
+
+- name: "4.2.2.3 | PATCH | Ensure journald is configured to send logs to rsyslog"
+  ansible.builtin.lineinfile:
+      path: /etc/systemd/journald.conf
+      regexp: ^ForwardToSyslog=
+      line: ForwardToSyslog=yes
+  notify: Restart syslog service
+  when:
+      - ubtu22cis_rule_4_2_2_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - journald
+      - rule_4_2_2_3
+
+- name: "4.2.2.4 | PATCH | Ensure rsyslog default file permissions configured"
+  ansible.builtin.lineinfile:
+      path: /etc/rsyslog.conf
+      regexp: '^\$FileCreateMode|^#\$FileCreateMode'
+      line: '$FileCreateMode 0640'
+  notify: Restart syslog service
+  when:
+      - ubtu22cis_rule_4_2_2_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_4_2_2_4
+      - rsyslog
+
+- name: "4.2.2.5 | PATCH | Ensure logging is configured"
+  block:
+      - name: "4.2.2.5 | AUDIT | Ensure logging is configured | Find configuration file"
+        ansible.builtin.shell: grep -r "*.emerg" /etc/* | cut -f1 -d":"
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_4_2_2_5_rsyslog_config_path
+
+      - name: "4.2.2.5 | AUDIT | Ensure logging is configured | Gather rsyslog current config"
+        ansible.builtin.shell: "cat {{ ubtu22cis_4_2_2_5_rsyslog_config_path.stdout }}"
+        changed_when: false
+        failed_when: false
+        check_mode: false
+        register: ubtu22cis_4_2_2_5_rsyslog_config
+
+      - name: "4.2.2.5 | AUDIT | Ensure logging is configured | Message out config"
+        ansible.builtin.debug:
+            msg:
+                - "Warning!! Below is the current logging configurations for rsyslog, please review"
+                - "{{ ubtu22cis_4_2_2_5_rsyslog_config.stdout_lines }}"
+        when: not ubtu22cis_rsyslog_ansible_managed
+
+      - name: "4.2.2.5 | PATCH | Ensure logging is configured | Set warning count"
+        ansible.builtin.import_tasks:
+            file: warning_facts.yml
+        when: not ubtu22cis_rsyslog_ansible_managed
+
+      - name: "4.2.2.5 | PATCH | Ensure logging is configured | Automated rsyslog configuration"
+        ansible.builtin.lineinfile:
+            path: "{{ ubtu22cis_4_2_2_5_rsyslog_config_path.stdout }}"
+            regexp: "{{ item.regexp }}"
+            line: "{{ item.line }}"
+            insertafter: "{{ item.insertafter }}"
+        with_items:
+            - { regexp: '^\*.emerg', line: '*.emerg                         :omusrmsg:*', insertafter: '^# Emergencies are sent to everybody logged in' }
+            - { regexp: '^auth,authpriv.\*', line: 'auth,authpriv.*                  /var/log/secure', insertafter: '^# First some standard log files.  Log by facility' }
+            - { regexp: '^mail.\*|^#mail.\*', line: 'mail.*                          -/var/log/mail', insertafter: '^# First some standard log files' }
+            - { regexp: '^cron.\*|^#cron.\*', line: 'cron.*                          /var/log/cron', insertafter: '^# First some standard log files' }
+            - { regexp: '^mail.info|^#mail.info', line: 'mail.info                      -/var/log/mail.info', insertafter: '^# Logging for the mail system' }
+            - { regexp: '^mail.warn|^#mail.warn', line: 'mail.warning                   -/var/log/mail.warn', insertafter: '^# Logging for the mail system.' }
+            - { regexp: '^mail.err|^#mail.err', line: 'mail.err                        /var/log/mail.err', insertafter: '^# Logging for the mail system.' }
+            - { regexp: '^\*.=warning;\*.=err|^#\*.=warning;\*.=err', line: '*.=warning;*.=err               -/var/log/warn', insertafter: '^# First some standard log files' }
+            - { regexp: '^\*.crit|^#\*.crit', line: '*.crit                           /var/log/warn', insertafter: '^# First some standard log files' }
+            - { regexp: '^\*.\*;mail.none;news.none|^#\*.\*;mail.none;news.none', line: '*.*;mail.none;news.none         -/var/log/messages', insertafter: '^# First some standard log files' }
+            - { regexp: '^local0,local1.\*|^#local0,local1.\*', line: 'local0,local1.*                 -/var/log/localmessages', insertafter: '^# First some standard log files' }
+            - { regexp: '^local2,local3.\*|^#local2,local3.\*', line: 'local2,local3.*                 -/var/log/localmessages', insertafter: '^# First some standard log files' }
+            - { regexp: '^local4,local5.\*|^#local4,local5.\*', line: 'local4,local5.*                 -/var/log/localmessages', insertafter: '^# First some standard log files' }
+            - { regexp: '^local6,local7.\*|^#local6,local7.\*', line: 'local6,local7.*                 -/var/log/localmessages', insertafter: '^# First some standard log files' }
+        loop_control:
+            label: "{{ item.line }}"
+        notify: Restart syslog service
+        when: ubtu22cis_rsyslog_ansible_managed
+  vars:
+      warn_control_id: '4.2.2.5'
+  when:
+      - ubtu22cis_rule_4_2_2_5
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - rule_4_2_2_5
+      - rsyslog
+
+- name: "4.2.2.6 | PATCH | Ensure rsyslog is configured to send logs to a remote log host"
+  ansible.builtin.blockinfile:
+      path: /etc/rsyslog.conf
+      block: |
+          ##Enable sending of logs over TCP add the following line:
+          *.* @@{{ ubtu22cis_remote_log_server }}
+      insertafter: EOF
+  when:
+      - ubtu22cis_rule_4_2_2_6
+      - not ubtu22cis_system_is_log_server
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_4_2_2_6
+      - rsyslog
+
+- name: "4.2.2.7 | PATCH | Ensure rsyslog is not configured to receive logs from a remote client"
+  block:
+      - name: "4.2.2.7 | PATCH | Ensure rsyslog is not configured to receive logs from a remote client | When not a log host"
+        ansible.builtin.replace:
+            path: /etc/rsyslog.conf
+            regexp: '({{ item }})'
+            replace: '#\1'
+        with_items:
+            - '^(\$ModLoad|module(load="imtcp"))'
+            - '^(\$(InputTCP|InputRELP|UDP)ServerRun|input(type="imtcp" port=".*"))'
+        notify: Restart syslog service
+        when: not ubtu22cis_system_is_log_server
+
+      - name: "4.2.2.7 | PATCH | Ensure rsyslog is not configured to receive logs from a remote client | When a log server"
+        ansible.builtin.lineinfile:
+            path: /etc/rsyslog.conf
+            regexp: "{{ item.regexp }}"
+            line: "{{ item.line }}"
+        with_items:
+            - { regexp: '^\$ModLoad|^#\$ModLoad', line: '$ModLoad imtcp' }
+            - { regexp: '^\$InputTCPServerRun|^#\$InputTCPServerRun', line: '$InputTCPServerRun 514' }
+        notify: Restart syslog service
+        when: ubtu22cis_system_is_log_server
+  when:
+      - ubtu22cis_rule_4_2_2_7
+  tags:
+      - level1-server
+      - level1-workstation
+      - manual
+      - patch
+      - rule_4_2_2_7
+      - rsyslog
+
+- name: "4.2.3 | PATCH | Ensure permissions on all logfiles are configured"
+  block:
+      - name: "4.2.3 | AUDIT | Ensure permissions on all logfiles are configured | find files"
+        ansible.builtin.find:
+            paths: "/var/log"
+            file_type: file
+            recurse: true
+            hidden: true
+        register: logfiles
+
+      - name: "4.2.3 | PATCH | Ensure permissions on all logfiles are configured | change permissions"
+        ansible.builtin.file:
+            path: "{{ item.path }}"
+            mode: '0640'
+        loop: "{{ logfiles.files }}"
+        loop_control:
+            label: "{{ item.path }}"
+        when:
+            - item.path != "/var/log/btmp"
+            - item.path != "/var/log/utmp"
+            - item.path != "/var/log/wtmp"
+  when:
+      - ubtu22cis_rule_4_2_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - patch
+      - logfiles
+      - rule_4.2.3
+
+- name: "5.1.1 | PATCH | Ensure cron daemon is enabled and running"
+  ansible.builtin.systemd:
+      name: cron
+      state: started
+      enabled: true
+  when:
+      - ubtu22cis_rule_5_1_1
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.1.1
+      - cron
+
+- name: "5.1.2 | PATCH | Ensure permissions on /etc/crontab are configured"
+  ansible.builtin.file:
+      path: /etc/crontab
+      owner: root
+      group: root
+      mode: '0600'
+  when:
+      - ubtu22cis_rule_5_1_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.1.2
+      - cron
+
+- name: "5.1.3 | PATCH | Ensure permissions on /etc/cron.hourly are configured"
+  ansible.builtin.file:
+      path: /etc/cron.hourly
+      owner: root
+      group: root
+      mode: '0700'
+  when:
+      - ubtu22cis_rule_5_1_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.1.3
+      - cron
+
+- name: "5.1.4 | PATCH | Ensure permissions on /etc/cron.daily are configured"
+  ansible.builtin.file:
+      path: /etc/cron.daily
+      owner: root
+      group: root
+      mode: '0700'
+  when:
+      - ubtu22cis_rule_5_1_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.1.4
+      - cron
+
+- name: "5.1.5 | PATCH | Ensure permissions on /etc/cron.weekly are configured"
+  ansible.builtin.file:
+      path: /etc/cron.weekly
+      owner: root
+      group: root
+      mode: '0700'
+  when:
+      - ubtu22cis_rule_5_1_5
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.1.5
+      - cron
+
+- name: "5.1.6 | PATCH | Ensure permissions on /etc/cron.monthly are configured"
+  ansible.builtin.file:
+      path: /etc/cron.monthly
+      owner: root
+      group: root
+      mode: '0700'
+  when:
+      - ubtu22cis_rule_5_1_6
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.1.6
+      - cron
+
+- name: "5.1.7 | PATCH | Ensure permissions on /etc/cron.d are configured"
+  ansible.builtin.file:
+      path: /etc/cron.d
+      owner: root
+      group: root
+      mode: '0700'
+  when:
+      - ubtu22cis_rule_5_1_7
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.1.7
+      - cron
+
+- name: "5.1.8 | PATCH | Ensure cron is restricted to authorized users"
+  block:
+      - name: "5.1.8 | PATCH | Ensure cron is restricted to authorized users | Remove cron.deny"
+        ansible.builtin.file:
+            path: /etc/cron.deny
+            state: absent
+
+      - name: "5.1.8 | PATCH | Ensure cron is restricted to authorized users | Check for cron.allow"
+        ansible.builtin.stat:
+            path: /etc/cron.allow
+        register: ubtu22cis_5_1_8_status
+
+      - name: "5.1.8 | PATCH | Ensure cron is restricted to authorized users | Create cron.allow if doesn't exist"
+        ansible.builtin.file:
+            path: /etc/cron.allow
+            owner: root
+            group: root
+            mode: '0640'
+            state: touch
+        when: not ubtu22cis_5_1_8_status.stat.exists
+
+      - name: "5.1.8 | PATCH | Ensure cron is restricted to authorized users | Update cron.allow if exists"
+        ansible.builtin.file:
+            path: /etc/cron.allow
+            owner: root
+            group: root
+            mode: '0640'
+        when: ubtu22cis_5_1_8_status.stat.exists
+  when:
+      - ubtu22cis_rule_5_1_8
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.1.8
+      - cron
+
+- name: "5.1.9 | PATCH | Ensure at is restricted to authorized users"
+  block:
+      - name: "5.1.9 | PATCH | Ensure at is restricted to authorized users | Remove at.deny"
+        ansible.builtin.file:
+            path: /etc/at.deny
+            state: absent
+
+      - name: "5.1.9 | PATCH | Ensure at is restricted to authorized users | Check for at.allow"
+        ansible.builtin.stat:
+            path: /etc/at.allow
+        register: ubtu22cis_5_1_9_status
+
+      - name: "5.1.9 | PATCH | Ensure at is restricted to authorized users | Create at.allow if doesn't exist"
+        ansible.builtin.file:
+            path: /etc/at.allow
+            owner: root
+            group: root
+            mode: '0640'
+            state: touch
+        when: not ubtu22cis_5_1_9_status.stat.exists
+
+      - name: "5.1.9 | PATCH | Ensure at is restricted to authorized users | Update at.allow if exists"
+        ansible.builtin.file:
+            path: /etc/at.allow
+            owner: root
+            group: root
+            mode: '0640'
+        when: ubtu22cis_5_1_9_status.stat.exists
+  when:
+      - ubtu22cis_rule_5_1_9
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.1.9
+      - cron
+
+- name: "5.2.1 | PATCH | Ensure permissions on /etc/ssh/sshd_config are configured"
+  ansible.builtin.file:
+      path: /etc/ssh/sshd_config
+      owner: root
+      group: root
+      mode: '0600'
+  when:
+      - ubtu22cis_rule_5_2_1
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.1
+      - ssh
+
+- name: "5.2.2 | PATCH | Ensure permissions on SSH private host key files are configured"
+  block:
+      - name: "5.2.2 | AUDIT | Ensure permissions on SSH private host key files are configured | Find ssh_host private keys"
+        ansible.builtin.find:
+            paths: /etc/ssh
+            patterns: 'ssh_host_*_key'
+        register: ubtu22cis_5_2_2_ssh_host_priv_keys
+
+      - name: "5.2.2 | PATCH | Ensure permissions on SSH private host key files are configured | Set permissions"
+        ansible.builtin.file:
+            path: "{{ item.path }}"
+            owner: root
+            group: root
+            mode: '0600'
+        with_items:
+            - "{{ ubtu22cis_5_2_2_ssh_host_priv_keys.files }}"
+        loop_control:
+            label: "{{ item.path }}"
+  when:
+      - ubtu22cis_rule_5_2_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.2
+      - ssh
+
+- name: "5.2.3 | PATCH | Ensure permissions on SSH public host key files are configured"
+  block:
+      - name: "5.2.3 | AUDIT | Ensure permissions on SSH public host key files are configured | Find ssh_host public keys"
+        ansible.builtin.find:
+            paths: /etc/ssh
+            patterns: 'ssh_host_*_key.pub'
+        register: ubtu22cis_5_2_3_ssh_host_pub_keys
+
+      - name: "5.2.3 | PATCH | Ensure permissions on SSH public host key files are configured | Set permissions"
+        ansible.builtin.file:
+            path: "{{ item.path }}"
+            owner: root
+            group: root
+            mode: '0644'
+        with_items:
+            - "{{ ubtu22cis_5_2_3_ssh_host_pub_keys.files }}"
+        loop_control:
+            label: "{{ item.path }}"
+  when:
+      - ubtu22cis_rule_5_2_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.3
+      - ssh
+
+- name: "5.2.4 | PATCH | Ensure SSH access is limited"
+  block:
+      - name: "5.2.4 | PATCH | Ensure SSH access is limited | Add allowed users"
+        ansible.builtin.lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^AllowUsers|^#AllowUsers'
+            line: 'AllowUsers {{ ubtu22cis_sshd.allow_users }}'
+            validate: 'sshd -t -f %s'
+        notify: Restart sshd
+        when: "ubtu22cis_sshd['allow_users']| default('') | length > 0 "
+
+      - name: "5.2.4 | PATCH | Ensure SSH access is limited | Add allowed groups"
+        ansible.builtin.lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^AllowGroups|^#AllowGroups'
+            line: 'AllowGroups {{ ubtu22cis_sshd.allow_groups }}'
+            validate: 'sshd -t -f %s'
+        notify: Restart sshd
+        when: "ubtu22cis_sshd['allow_groups']| default('') | length > 0"
+
+      - name: "5.2.4 | PATCH | Ensure SSH access is limited | Add deny users"
+        ansible.builtin.lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^DenyUsers|^#DenyUsers'
+            line: 'DenyUsers {{ ubtu22cis_sshd.deny_users }} '
+            validate: 'sshd -t -f %s'
+        notify: Restart sshd
+        when: "ubtu22cis_sshd['deny_users']| default('') | length > 0"
+
+      - name: "5.2.4 | PATCH | Ensure SSH access is limited | Add deny groups"
+        ansible.builtin.lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^DenyGroups|^#DenyGroups'
+            line: 'DenyGroups {{ ubtu22cis_sshd.deny_groups }}'
+            validate: 'sshd -t -f %s'
+        notify: Restart sshd
+        when: "ubtu22cis_sshd['deny_groups']| default('') | length > 0"
+  when:
+      - ubtu22cis_rule_5_2_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.4
+      - ssh
+
+- name: "5.2.5 | PATCH | Ensure SSH LogLevel is appropriate"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^LogLevel|^#LogLevel'
+      line: 'LogLevel {{ ubtu22cis_sshd.log_level | default(ubtu22cis_sshd_default_log_level) }}'
+      insertafter: '^# Logging'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_5
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.5
+      - ssh
+
+- name: "5.2.6 | PATCH | Ensure SSH PAM is enabled"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^UsePAM|^#UsePAM'
+      line: 'UsePAM yes'
+      insertafter: '^# and ChallengeResponseAuthentication'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_6
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.6
+      - ssh
+      - pam
+
+- name: "5.2.7 | PATCH | Ensure SSH root login is disabled"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^PermitRootLogin|^#PermitRootLogin'
+      line: 'PermitRootLogin no'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_7
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.7
+      - ssh
+
+- name: "5.2.8 | PATCH | Ensure SSH HostbasedAuthentication is disabled"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^HostbasedAuthentication|^#HostbasedAuthentication'
+      line: 'HostbasedAuthentication no'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_8
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.8
+      - ssh
+
+- name: "5.2.9 | PATCH | Ensure SSH PermitEmptyPasswords is disabled"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^PermitEmptyPasswords|^#PermitEmptyPasswords'
+      line: 'PermitEmptyPasswords no'
+      insertafter: '# To disable tunneled clear text passwords'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_9
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.9
+      - ssh
+
+- name: "5.2.10 | PATCH | Ensure SSH PermitUserEnvironment is disabled"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^PermitUserEnvironment|^#PermitUserEnvironment'
+      line: 'PermitUserEnvironment no'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_10
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.10
+      - ssh
+
+- name: "5.2.11 | PATCH | Ensure SSH IgnoreRhosts is enabled"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^IgnoreRhosts|^#IgnoreRhosts'
+      line: 'IgnoreRhosts yes'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_11
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.11
+      - ssh
+
+- name: "5.2.12 | PATCH | Ensure SSH X11 forwarding is disabled"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^X11Forwarding|^#X11Forwarding'
+      line: 'X11Forwarding no'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_12
+  tags:
+      - level2-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.12
+      - ssh
+
+- name: "5.2.13 | PATCH | Ensure only strong Ciphers are used"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^Ciphers|^#Ciphers'
+      line: "Ciphers {{ ubtu22cis_sshd.ciphers | default(ubtu22cis_sshd_default_ciphers) | join(',') }}"
+      insertafter: '^# Ciphers and keying'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_13
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.13
+      - ssh
+
+- name: "5.2.14 | PATCH | Ensure only strong MAC algorithms are used"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^MACs|^#MACs'
+      line: "MACs {{ ubtu22cis_sshd.macs | default(ubtu22cis_sshd_default_macs) | join(',') }}"
+      insertafter: '^# Ciphers and keying'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_14
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.14
+      - ssh
+
+- name: "5.2.15 | PATCH | Ensure only strong Key Exchange algorithms are used"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^KexAlgorithms|^#KexAlgorithms'
+      line: "KexAlgorithms {{ ubtu22cis_sshd.kex_algorithms | default(ubtu22cis_sshd_default_kex_algorithms) | join(',') }}"
+      insertafter: '^# Ciphers and keying'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_15
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.15
+      - ssh
+
+- name: "5.2.16 | PATCH | Ensure SSH AllowTcpForwarding is disabled"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^AllowTcpForwarding|^#AllowTcpForwarding'
+      line: 'AllowTcpForwarding no'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_16
+  tags:
+      - level2-server
+      - level2-workstation
+      - automated
+      - patch
+      - rule_5.2.16
+      - ssh
+
+- name: "5.2.17 | PATCH | Ensure SSH warning banner is configured"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^Banner|^#Banner'
+      line: Banner /etc/issue.net
+      insertafter: '^# no default banner path'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_17
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.17
+      - ssh
+
+- name: "5.2.18 | PATCH | Ensure SSH MaxAuthTries is set to 4 or less"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^MaxAuthTries|^#MaxAuthTries'
+      line: 'MaxAuthTries {{ ubtu22cis_sshd.max_auth_tries | default(ubtu22cis_sshd_default_max_auth_tries) }}'
+      insertafter: '^# Authentication'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_18
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.18
+      - ssh
+
+- name: "5.2.19 | PATCH | Ensure SSH MaxStartups is configured"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^MaxStartups|^#MaxStartups'
+      line: 'MaxStartups 10:30:60'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_19
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.19
+      - ssh
+
+- name: "5.2.20 | PATCH | Ensure SSH MaxSessions is set to 10 or less"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^MaxSessions|^#MaxSessions'
+      line: 'MaxSessions {{ ubtu22cis_sshd.max_sessions | default(ubtu22cis_sshd_default_max_sessions) }}'
+      insertafter: '^# Authentication'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_20
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.20
+      - ssh
+
+- name: "5.2.21 | PATCH | Ensure SSH LoginGraceTime is set to one minute or less"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^LoginGraceTime|^#LoginGraceTime'
+      line: 'LoginGraceTime {{ ubtu22cis_sshd.login_grace_time | default(ubtu22cis_sshd_default_login_grace_time) }}'
+      insertafter: '^# Authentication'
+      validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_21
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.21
+      - ssh
+
+- name: "5.2.22 | PATCH | Ensure SSH Idle Timeout Interval is configured"
+  ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: "{{ item.regexp }}"
+      line: "{{ item.line }}"
+      validate: 'sshd -t -f %s'
+  with_items:
+      - { regexp: '^ClientAliveInterval|^#ClientAliveInterval', line: 'ClientAliveInterval {{ ubtu22cis_sshd.client_alive_interval | default(ubtu22cis_sshd_default_client_alive_interval) }}' }
+      - { regexp: '^ClientAliveCountMax|^#ClientAliveCountMax', line: 'ClientAliveCountMax {{ ubtu22cis_sshd.client_alive_count_max | default(ubtu22cis_sshd_default_client_alive_count_max) }}' }
+  notify: Restart sshd
+  when:
+      - ubtu22cis_rule_5_2_22
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_5.2.22
+      - ssh
+
