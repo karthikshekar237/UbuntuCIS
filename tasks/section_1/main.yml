@@ -5,10 +5,10 @@
       file: cis_1.1.1.x.yml
   when: not system_is_container
 
-# - name: "SECTION | 1.1.2 | Configure /tmp"
-#   ansible.builtin.import_tasks:
-#       file: cis_1.1.2.x.yml
-#   when: not system_is_container
+- name: "SECTION | 1.1.2 | Configure /tmp"
+  ansible.builtin.import_tasks:
+      file: cis_1.1.2.x.yml
+  when: not system_is_container
 
 # - name: "SECTION | 1.1.3 | Configure /var"
 #   ansible.builtin.import_tasks:
