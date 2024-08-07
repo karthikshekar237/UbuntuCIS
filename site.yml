@@ -1,7 +1,8 @@
 ---
 
-- hosts: all
+- hosts: local
   become: true
+  connection: local
 
   roles:
 
