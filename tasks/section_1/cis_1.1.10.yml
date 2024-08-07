@@ -1,5 +1,4 @@
 ---
-
 - name: "1.1.10 | PATCH | Disable USB Storage"
   block:
       - name: "1.1.10 | PATCH | Disable USB Storage | Set modprobe config"
@@ -8,19 +7,21 @@
             regexp: '^install usb-storage'
             line: 'install usb-storage /bin/true'
             create: true
+        notify: Update_Initramfs
 
       - name: "1.1.10 | PATCH | Disable USB Storage | Blacklist usb-storage"
         ansible.builtin.lineinfile:
             path: /etc/modprobe.d/blacklist.conf
             line: 'blacklist usb-storage'
             insertafter: EOF
+        notify: Update_Initramfs
 
       - name: "1.1.10 | PATCH | Disable USB Storage | Remove usb-storage module"
         community.general.modprobe:
             name: usb-storage
             state: absent
         when: ansible_connection != 'docker'
-  notify: Update_Initramfs
+        notify: Update_Initramfs
   when:
       - ubtu22cis_rule_1_1_10
       - not ubtu22cis_allow_usb_storage
@@ -31,3 +32,4 @@
       - patch
       - rule_1.1.10
       - usb_storage
+
