@@ -9,13 +9,13 @@
   tags:
       - always
 
-- name: Check ansible version
-  ansible.builtin.assert:
-      that: ansible_version.full is version_compare(min_ansible_version, '>=')
-      fail_msg: "You must use Ansible {{ min_ansible_version }} or greater"
-      success_msg: "This role is running a supported version of ansible {{ ansible_version.full }} >= {{ min_ansible_version }}"
-  tags:
-      - always
+# - name: Check ansible version
+#   ansible.builtin.assert:
+#       that: ansible_version.full is version_compare(min_ansible_version, '>=')
+#       fail_msg: "You must use Ansible {{ min_ansible_version }} or greater"
+#       success_msg: "This role is running a supported version of ansible {{ ansible_version.full }} >= {{ min_ansible_version }}"
+#   tags:
+#       - always
 
 #  This control should always run as this can pass on unintended issues.
 - name: "Check password set for connecting user"
