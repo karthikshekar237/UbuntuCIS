@@ -1,4 +1,3 @@
----
 - name: "1.1.1.1 | PATCH | Ensure mounting of cramfs filesystems is disabled"
   block:
       - name: "1.1.1.1 | PATCH | Ensure mounting of cramfs filesystems is disabled | Edit modprobe config"
@@ -19,9 +18,8 @@
         notify: Update_Initramfs
 
       - name: "1.1.1.1 | PATCH | Ensure mounting of cramfs filesystems is disabled | Disable cramfs"
-        community.general.modprobe:
-            name: cramfs
-            state: absent
+        ansible.builtin.command:
+            cmd: modprobe -r cramfs
         when: ansible_connection != 'docker'
         notify: Update_Initramfs
   when:
@@ -54,15 +52,15 @@
         notify: Update_Initramfs
 
       - name: "1.1.1.2 | PATCH | Ensure mounting of squashfs filesystems is disabled | Disable squashfs"
-        community.general.modprobe:
-            name: squashfs
-            state: absent
-        when: ansible_connection != 'docker'
+        ansible.builtin.command:
+            cmd: modprobe -r squashfs
+        when: 
+            - ansible_connection != 'docker'
+            - snap_pkg_mgr.stdout == "0"
+            - squashfs_builtin.stdout == "0"
         notify: Update_Initramfs
   when:
       - ubtu22cis_rule_1_1_1_2
-      - snap_pkg_mgr.stdout == "0"
-      - squashfs_builtin.stdout == "0"
   tags:
       - level2-server
       - level2-workstation
@@ -75,7 +73,7 @@
   block:
       - name: "1.1.1.3 | PATCH | Ensure mounting of udf filesystems is disabled | Edit modprobe config"
         ansible.builtin.lineinfile:
-            dest: /etc.modprobe.d/udf.conf
+            dest: /etc/modprobe.d/udf.conf
             regexp: '^(#)?install udf(\\s|$)'
             line: install udf /bin/true
             create: true
@@ -83,7 +81,7 @@
 
       - name: "1.1.1.3 | PATCH | Ensure mounting of udf filesystems is disabled | blacklist"
         ansible.builtin.lineinfile:
-            path: /etc.modprobe.d/blacklist.conf
+            path: /etc/modprobe.d/blacklist.conf
             regexp: "^(#)?blacklist udf(\\s|$)"
             line: "blacklist udf"
             create: true
@@ -91,9 +89,8 @@
         notify: Update_Initramfs
 
       - name: "1.1.1.3 | PATCH | Ensure mounting of udf filesystems is disabled | Disable udf"
-        community.general.modprobe:
-            name: udf
-            state: absent
+        ansible.builtin.command:
+            cmd: modprobe -r udf
         when: ansible_connection != 'docker'
         notify: Update_Initramfs
   when:

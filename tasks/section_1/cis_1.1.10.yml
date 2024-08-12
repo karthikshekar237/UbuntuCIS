@@ -17,9 +17,8 @@
         notify: Update_Initramfs
 
       - name: "1.1.10 | PATCH | Disable USB Storage | Remove usb-storage module"
-        community.general.modprobe:
-            name: usb-storage
-            state: absent
+        ansible.builtin.command:
+            cmd: modprobe -r usb-storage
         when: ansible_connection != 'docker'
         notify: Update_Initramfs
   when:
@@ -32,4 +31,3 @@
       - patch
       - rule_1.1.10
       - usb_storage
-
