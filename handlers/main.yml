@@ -18,12 +18,10 @@
   listen: Writing and remounting tmp
 
 - name: Writing the tmp file | fstab
-  ansible.posix.mount:
-      path: /tmp
-      src: "{{ item.device }}"
-      state: present
-      fstype: "{{ item.fstype }}"
-      opts: defaults,{{ tmp_partition_mount_options | unique | join(',') }}
+  ansible.builtin.lineinfile:
+      path: /etc/fstab
+      regexp: '^(\S+\s+/tmp\s+\S+\s+)(\S*)'
+      line: '\1defaults,{{ tmp_partition_mount_options | unique | join(",") }}'
   with_items:
       - "{{ ansible_facts.mounts }}"
   loop_control:
@@ -39,43 +37,35 @@
   notify: set_reboot_required
 
 - name: Remount tmp
-  ansible.posix.mount:
-      path: /tmp
-      state: remounted
+  ansible.builtin.command:
+      cmd: mount -o remount /tmp
   when:
       - "'/tmp' in mount_names"
   listen: Writing and remounting tmp
 
 - name: Remount var
-  ansible.posix.mount:
-      path: /var
-      state: remounted
+  ansible.builtin.command:
+      cmd: mount -o remount /var
 
 - name: Remount var_tmp
-  ansible.posix.mount:
-      path: /var/tmp
-      state: remounted
+  ansible.builtin.command:
+      cmd: mount -o remount /var/tmp
 
 - name: Remount var_log
-  ansible.posix.mount:
-      path: /var/log
-      state: remounted
+  ansible.builtin.command:
+      cmd: mount -o remount /var/log
 
 - name: Remount var_log_audit
-  ansible.posix.mount:
-      path: /var/log/audit
-      state: remounted
+  ansible.builtin.command:
+      cmd: mount -o remount /var/log/audit
 
 - name: Remount home
-  ansible.posix.mount:
-      path: /home
-      state: remounted
+  ansible.builtin.command:
+      cmd: mount -o remount /home
 
 - name: Remount dev_shm
-  ansible.posix.mount:
-      path: /dev/shm
-      src: /dev/shm
-      state: remounted
+  ansible.builtin.command:
+      cmd: mount -o remount /dev/shm
 
 - name: Grub update
   ansible.builtin.shell: update-grub
@@ -116,24 +106,20 @@
       state: restarted
 
 - name: Flush ipv4 route table
-  ansible.posix.sysctl:
-      name: net.ipv4.route.flush
-      value: '1'
-      sysctl_set: true
+  ansible.builtin.shell:
+      cmd: sysctl -w net.ipv4.route.flush=1
   when: ansible_facts.virtualization_type != "docker"
 
 - name: Flush ipv6 route table
-  ansible.posix.sysctl:
-      name: net.ipv6.route.flush
-      value: '1'
-      sysctl_set: true
+  ansible.builtin.shell:
+      cmd: sysctl -w net.ipv6.route.flush=1
   when:
       - ansible_facts.virtualization_type != "docker"
       - ubtu22cis_ipv6_required
 
 - name: Reload ufw
-  community.general.ufw:
-      state: reloaded
+  ansible.builtin.command:
+      cmd: ufw reload
 
 - name: Iptables persistent
   ansible.builtin.shell: bash -c "iptables-save > /etc/iptables/rules.v4"
@@ -175,3 +161,4 @@
 - name: set_reboot_required
   ansible.builtin.set_fact:
       change_requires_reboot: true
+
