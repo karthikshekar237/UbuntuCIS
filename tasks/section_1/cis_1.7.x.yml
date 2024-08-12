@@ -35,11 +35,9 @@
         dest: /etc/issue
 
     - name: "1.7.2 | PATCH | Ensure local login warning banner is kept on package upgrade | issue"
-      ansible.builtin.shell:
-        cmd: |
-          dpkg-divert --divert /etc/issue.diverted --rename --add /etc/issue
-        args:
-          warn: false
+      ansible.builtin.shell: |
+        dpkg-divert --divert /etc/issue.diverted --rename --add /etc/issue
+      warn: false
   when:
     - ubtu22cis_rule_1_7_2
   tags:
@@ -58,11 +56,9 @@
         dest: /etc/issue.net
 
     - name: "1.7.3 | PATCH | Ensure remote login warning banner is kept on package upgrade | issue.net"
-      ansible.builtin.shell:
-        cmd: |
-          dpkg-divert --divert /etc/issue.net.diverted --rename --add /etc/issue.net
-        args:
-          warn: false
+      ansible.builtin.shell: |
+        dpkg-divert --divert /etc/issue.net.diverted --rename --add /etc/issue.net
+      warn: false
   when:
     - ubtu22cis_rule_1_7_3
   tags:
