@@ -1,5 +1,4 @@
 ---
-
 - name: "3.5.1.1 | PATCH | Ensure ufw is installed"
   ansible.builtin.package:
       name: ufw
@@ -35,10 +34,8 @@
 - name: "3.5.1.3 | PATCH | Ensure ufw service is enabled"
   block:
       - name: "3.5.1.3 | PATCH | Ensure ufw service is enabled | ssh port enabled"
-        community.general.ufw:
-            rule: allow
-            name: OpenSSH
-            state: enabled
+        ansible.builtin.command:
+            cmd: ufw allow OpenSSH
 
       - name: "3.5.1.3 | PATCH | Ensure ufw service is enabled | service"
         ansible.builtin.systemd:
@@ -59,31 +56,23 @@
 - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured"
   block:
       - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set allow in ufw rules"
-        community.general.ufw:
-            rule: allow
-            direction: in
-            interface: lo
+        ansible.builtin.command:
+            cmd: ufw allow in on lo
         notify: Reload ufw
 
       - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set allow out ufw rules"
-        community.general.ufw:
-            rule: allow
-            direction: out
-            interface: lo
+        ansible.builtin.command:
+            cmd: ufw allow out on lo
         notify: Reload ufw
 
       - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set deny ufw rules IPv4"
-        community.general.ufw:
-            rule: deny
-            direction: in
-            from_ip: 127.0.0.0/8
+        ansible.builtin.command:
+            cmd: ufw deny in from 127.0.0.0/8
         notify: Reload ufw
 
       - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set deny ufw rules IPv6"
-        community.general.ufw:
-            rule: deny
-            direction: in
-            from_ip: '::1'
+        ansible.builtin.command:
+            cmd: ufw deny in from ::1
         when: ubtu22cis_ipv6_required
         notify: Reload ufw
   when:
@@ -99,19 +88,16 @@
 - name: "3.5.1.5 | PATCH | Ensure ufw outbound connections are configured"
   block:
       - name: "3.5.1.5 | PATCH | Ensure ufw outbound connections are configured | Custom ports"
-        community.general.ufw:
-            rule: allow
-            direction: out
-            to_port: '{{ item }}'
+        ansible.builtin.command:
+            cmd: ufw allow out to any port {{ item }}
         with_items:
             - "{{ ubtu22cis_ufw_allow_out_ports }}"
         notify: Reload ufw
         when: ubtu22cis_ufw_allow_out_ports != "all"
 
       - name: "3.5.1.5 | PATCH | Ensure ufw outbound connections are configured | Allow all"
-        community.general.ufw:
-            rule: allow
-            direction: out
+        ansible.builtin.command:
+            cmd: ufw allow out
         notify: Reload ufw
         when: "'all' in ubtu22cis_ufw_allow_out_ports"
   when:
@@ -166,14 +152,21 @@
       - ufw
 
 - name: "3.5.1.7 | PATCH | Ensure ufw default deny firewall policy"
-  community.general.ufw:
-      default: deny
-      direction: "{{ item }}"
-  notify: Reload ufw
-  with_items:
-      - incoming
-      - outgoing
-      - routed
+  block:
+    - name: "3.5.1.7 | PATCH | Ensure ufw default deny incoming policy"
+      ansible.builtin.command:
+        cmd: ufw default deny incoming
+      notify: Reload ufw
+
+    - name: "3.5.1.7 | PATCH | Ensure ufw default deny outgoing policy"
+      ansible.builtin.command:
+        cmd: ufw default deny outgoing
+      notify: Reload ufw
+
+    - name: "3.5.1.7 | PATCH | Ensure ufw default deny routed policy"
+      ansible.builtin.command:
+        cmd: ufw default deny routed
+      notify: Reload ufw
   when:
       - ubtu22cis_rule_3_5_1_7
   tags:
