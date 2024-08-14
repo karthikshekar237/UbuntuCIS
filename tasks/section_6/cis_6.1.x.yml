@@ -1,5 +1,35 @@
 ---
+# SELinux Setup Tasks
+- name: Ensure SELinux packages are installed
+  apt:
+    name:
+      - selinux-basics
+      - selinux-policy-default
+      - auditd
+      - audispd-plugins
+    state: present
+    update_cache: yes
 
+- name: Ensure SELinux is set to enforcing
+  command: selinux-activate
+  when: ansible_distribution == "Ubuntu"
+
+- name: Set SELinux mode to enforcing in configuration
+  replace:
+    path: /etc/selinux/config
+    regexp: '^SELINUX=.*'
+    replace: 'SELINUX=enforcing'
+
+- name: Check SELinux status
+  command: getenforce
+  register: selinux_status
+
+- name: Fail if SELinux is not enforcing
+  fail:
+    msg: "SELinux is not enforcing"
+  when: selinux_status.stdout != "Enforcing"
+
+# Existing CIS Tasks
 - name: "6.1.1 | PATCH | Ensure permissions on /etc/passwd are configured"
   ansible.builtin.file:
       path: /etc/passwd
@@ -57,7 +87,7 @@
       - level1-server
       - level1-workstation
       - patch
-      - permissionss
+      - permissions
       - rule_6.1.4
 
 - name: "6.1.5 | PATCH | Ensure permissions on /etc/shadow are configured"
