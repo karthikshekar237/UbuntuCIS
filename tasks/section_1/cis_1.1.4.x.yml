@@ -1,3 +1,4 @@
+---
 - name: "1.1.4.1 | AUDIT | Ensure /var/tmp is a separate partition"
   block:
     - name: "1.1.4.1 | AUDIT | Ensure /var/tmp is a separate partition | Absent"
@@ -30,8 +31,11 @@
       ansible.builtin.lineinfile:
         path: /etc/fstab
         regexp: '^(\S+\s+/var/tmp\s+\S+\s+\S+\s+\S+)'
-        line: '\1, noexec,nosuid,nodev 0 0'
+        line: '\1,noexec,nosuid,nodev 0 0'
         backrefs: yes
+      loop: "{{ ansible_facts.mounts }}"
+      loop_control:
+        label: "{{ item.device }}"
       when:
         - item.mount == "/var/tmp"
         - ubtu22cis_rule_1_1_4_2 or
