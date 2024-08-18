@@ -1,4 +1,3 @@
----
 - name: "1.1.5.1 | AUDIT | Ensure /var/log is a separate partition"
   block:
     - name: "1.1.5.1 | AUDIT | Ensure /var/log is a separate partition | Absent"
@@ -30,12 +29,9 @@
     - name: "1.1.5.2 | PATCH | Update /etc/fstab with nodev, noexec, nosuid options for /var/log"
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        regexp: '^(\S+\s+/var/log\s+\S+\s+\S+\s+\S+)'
-        line: '\1{% if ubtu22cis_rule_1_1_5_2 %},nodev{% endif %}{% if ubtu22cis_rule_1_1_5_3 %},noexec{% endif %}{% if ubtu22cis_rule_1_1_5_4 %},nosuid{% endif %} 0 0'
+        regexp: '^(\S+\s+/var/log\s+\S+\s+\S+\s+)'
+        line: '\1defaults,noexec,nodev,nosuid 0 0'
         backrefs: yes
-      loop: "{{ ansible_facts.mounts }}"
-      loop_control:
-        label: "{{ item.device }}"
       when:
         - item.mount == "/var/log"
         - ubtu22cis_rule_1_1_5_2 or

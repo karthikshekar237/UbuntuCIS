@@ -26,8 +26,8 @@
     - name: "1.1.3.2 | PATCH | Update /etc/fstab with nodev and nosuid options for /var"
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        regexp: '^(\S+\s+/var\s+\S+\s+\S+\s+\S+)'
-        line: '\1{% if ubtu22cis_rule_1_1_3_2 %},nodev{% endif %}{% if ubtu22cis_rule_1_1_3_3 %},nosuid{% endif %} 0 2'
+        regexp: '^(\S+\s+/var\s+\S+\s+\S+)'
+        line: '\1, nodev,nosuid 0 2'
         backrefs: yes
 
     - name: "1.1.3.2 | PATCH | Remount /var with updated options"
