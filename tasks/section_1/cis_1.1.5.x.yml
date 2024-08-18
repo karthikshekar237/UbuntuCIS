@@ -32,6 +32,9 @@
         regexp: '^(\S+\s+/var/log\s+\S+\s+\S+\s+)'
         line: '\1defaults,noexec,nodev,nosuid 0 0'
         backrefs: yes
+      loop: "{{ ansible_facts.mounts }}"
+      loop_control:
+        label: "{{ item.device }}"
       when:
         - item.mount == "/var/log"
         - ubtu22cis_rule_1_1_5_2 or
