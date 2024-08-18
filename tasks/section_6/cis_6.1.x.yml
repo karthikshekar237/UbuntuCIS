@@ -10,24 +10,24 @@
     state: present
     update_cache: yes
 
-- name: Ensure SELinux is set to enforcing
-  command: selinux-activate
-  when: ansible_distribution == "Ubuntu"
-
-- name: Set SELinux mode to enforcing in configuration
+- name: Set SELinux mode to permissive in configuration
   replace:
     path: /etc/selinux/config
     regexp: '^SELINUX=.*'
-    replace: 'SELINUX=enforcing'
+    replace: 'SELINUX=permissive'
+
+- name: Ensure SELinux is set to permissive
+  command: setenforce 0
+  when: ansible_distribution == "Ubuntu"
 
 - name: Check SELinux status
   command: getenforce
   register: selinux_status
 
-- name: Fail if SELinux is not enforcing
+- name: Fail if SELinux is not permissive
   fail:
-    msg: "SELinux is not enforcing"
-  when: selinux_status.stdout != "Enforcing"
+    msg: "SELinux is not set to permissive"
+  when: selinux_status.stdout != "Permissive"
 
 # Existing CIS Tasks
 - name: "6.1.1 | PATCH | Ensure permissions on /etc/passwd are configured"
