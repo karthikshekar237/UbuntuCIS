@@ -29,7 +29,7 @@
     - name: "1.1.6.2 | PATCH | Update /etc/fstab with noexec, nodev, nosuid options for /var/log/audit"
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        regexp: '^(\S+\s+/var/log/audit\s+\S+\s+\S+\s+)'
+        regexp: '^(\S+\s+/var/log/audit\s+\S+\s+)defaults'
         line: '\1defaults,noexec,nodev,nosuid 0 0'
         backrefs: yes
       loop: "{{ ansible_facts.mounts }}"
