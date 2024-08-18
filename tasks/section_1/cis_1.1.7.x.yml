@@ -1,26 +1,26 @@
 ---
 - name: "1.1.7.1 | AUDIT | Ensure /home is a separate partition"
   block:
-      - name: "1.1.7.1 | AUDIT | Ensure /home is a separate partition | Absent"
-        ansible.builtin.debug:
-            msg: "Warning!! {{ required_mount }} doesn't exist. This is a manual task"
+    - name: "1.1.7.1 | AUDIT | Ensure /home is a separate partition | Absent"
+      ansible.builtin.debug:
+        msg: "Warning!! {{ required_mount }} doesn't exist. This is a manual task"
 
-      - name: "1.1.7.1 | WARN | Ensure /home is a separate partition | warn_count"
-        ansible.builtin.import_tasks:
-            file: warning_facts.yml
+    - name: "1.1.7.1 | WARN | Ensure /home is a separate partition | warn_count"
+      ansible.builtin.import_tasks:
+        file: warning_facts.yml
   vars:
-      warn_control_id: '1.1.7.1'
-      required_mount: '/home'
+    warn_control_id: '1.1.7.1'
+    required_mount: '/home'
   when:
-      - required_mount not in mount_names
-      - ubtu22cis_rule_1_1_7_1
+    - required_mount not in mount_names
+    - ubtu22cis_rule_1_1_7_1
   tags:
-      - level2-server
-      - level2-workstation
-      - automated
-      - audit
-      - rule_1.1.7.1
-      - home
+    - level2-server
+    - level2-workstation
+    - automated
+    - audit
+    - rule_1.1.7.1
+    - home
 
 - name: |
     "1.1.7.2 | PATCH | Ensure /home partition includes the nodev option"
@@ -29,8 +29,9 @@
     - name: "1.1.7.2 | PATCH | Update /etc/fstab with nodev and nosuid options for /home"
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        regexp: '^(\S+\s+/home\s+\S+\s+)(\S*)'
-        line: '\1defaults,{% if ubtu22cis_rule_1_1_7_2 %}nodev,{% endif %}{% if ubtu22cis_rule_1_1_7_3 %}nosuid{% endif %}'
+        regexp: '^(\S+\s+/home\s+\S+\s+\S+\s+\S+)'
+        line: '\1{% if ubtu22cis_rule_1_1_7_3 %},nosuid{% endif %} 0 2'
+        backrefs: yes
       loop: "{{ ansible_facts.mounts }}"
       loop_control:
         label: "{{ item.device }}"
@@ -44,11 +45,11 @@
         cmd: mount -o remount /home
       notify: Remount home
   tags:
-      - level1-server
-      - level1-workstation
-      - automated
-      - patch
-      - rule_1.1.7.2
-      - rule_1.1.7.3
-      - home
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.1.7.2
+    - rule_1.1.7.3
+    - home
 

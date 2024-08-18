@@ -1,26 +1,26 @@
 ---
 - name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition"
   block:
-      - name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition | Absent"
-        ansible.builtin.debug:
-            msg: "Warning!! {{ required_mount }} doesn't exist. This is a manual task"
+    - name: "1.1.6.1 | AUDIT | Ensure /var/log/audit is a separate partition | Absent"
+      ansible.builtin.debug:
+        msg: "Warning!! {{ required_mount }} doesn't exist. This is a manual task"
 
-      - name: "1.1.6.1 | WARN | Ensure /var/log/audit is a separate partition | warn_count"
-        ansible.builtin.import_tasks:
-            file: warning_facts.yml
+    - name: "1.1.6.1 | WARN | Ensure /var/log/audit is a separate partition | warn_count"
+      ansible.builtin.import_tasks:
+        file: warning_facts.yml
   vars:
-      warn_control_id: '1.1.6.1'
-      required_mount: '/var/log/audit'
+    warn_control_id: '1.1.6.1'
+    required_mount: '/var/log/audit'
   when:
-      - required_mount not in mount_names
-      - ubtu22cis_rule_1_1_6_1
+    - required_mount not in mount_names
+    - ubtu22cis_rule_1_1_6_1
   tags:
-      - level2-server
-      - level2-workstation
-      - automated
-      - audit
-      - rule_1.1.6.1
-      - varlogaudit
+    - level2-server
+    - level2-workstation
+    - automated
+    - audit
+    - rule_1.1.6.1
+    - varlogaudit
 
 - name: |
     "1.1.6.2 | PATCH | Ensure /var/log/audit partition includes the noexec option"
@@ -30,8 +30,9 @@
     - name: "1.1.6.2 | PATCH | Update /etc/fstab with noexec, nodev, nosuid options for /var/log/audit"
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        regexp: '^(\S+\s+/var/log/audit\s+\S+\s+)(\S*)'
-        line: '\1defaults,{% if ubtu22cis_rule_1_1_6_2 %}noexec,{% endif %}{% if ubtu22cis_rule_1_1_6_3 %}nodev,{% endif %}{% if ubtu22cis_rule_1_1_6_4 %}nosuid{% endif %}'
+        regexp: '^(\S+\s+/var/log/audit\s+\S+\s+\S+\s+\S+)'
+        line: '\1{% if ubtu22cis_rule_1_1_6_2 %},noexec{% endif %}{% if ubtu22cis_rule_1_1_6_3 %},nodev{% endif %}{% if ubtu22cis_rule_1_1_6_4 %},nosuid{% endif %} 0 0'
+        backrefs: yes
       loop: "{{ ansible_facts.mounts }}"
       loop_control:
         label: "{{ item.device }}"
@@ -46,12 +47,11 @@
         cmd: mount -o remount /var/log/audit
       notify: Remount var_log_audit
   tags:
-      - level1-server
-      - level1-workstation
-      - automated
-      - patch
-      - rule_1.1.6.2
-      - rule_1.1.6.3
-      - rule_1.1.6.4
-      - varlogaudit
-
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - rule_1.1.6.2
+    - rule_1.1.6.3
+    - rule_1.1.6.4
+    - varlogaudit
