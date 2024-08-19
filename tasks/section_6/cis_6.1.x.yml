@@ -1,20 +1,15 @@
 ---
 # SELinux Setup Tasks
-- name: Ensure the system supports SELinux
+- name: Check if SELinux is supported and enabled
   command: selinuxenabled
   ignore_errors: yes
   register: selinux_check
 
-- name: Enable SELinux if it is disabled
+- name: Enable SELinux if it is disabled in the configuration file
   command: "sed -i 's/^SELINUX=disabled/SELINUX=permissive/' /etc/selinux/config"
   when: selinux_check.rc != 0
 
-- name: Reboot the system to apply SELinux configuration changes
-  reboot:
-    reboot_timeout: 300
-  when: selinux_check.rc != 0
-
-- name: Ensure SELinux packages are installed
+- name: Install necessary packages for SELinux
   apt:
     name:
       - selinux-basics
@@ -24,19 +19,29 @@
     state: present
     update_cache: yes
 
+# - name: Reboot the system to apply SELinux configuration changes
+#   reboot:
+#     reboot_timeout: 300
+#   when: selinux_check.rc != 0
+
 - name: Set SELinux mode to enforcing in configuration
   replace:
     path: /etc/selinux/config
     regexp: '^SELINUX=.*'
     replace: 'SELINUX=enforcing'
 
-- name: Ensure SELinux is set to enforcing
+- name: Ensure SELinux is set to enforcing for the current session
   command: setenforce 1
   when: ansible_distribution == "Ubuntu"
 
 - name: Check SELinux status
   command: getenforce
   register: selinux_status
+
+# - name: Fail if SELinux is not enforcing
+#   fail:
+#     msg: "SELinux is not set to enforcing"
+#   when: selinux_status.stdout != "Enforcing"
 
 # - name: Fail if SELinux is not enforcing
 #   fail:
