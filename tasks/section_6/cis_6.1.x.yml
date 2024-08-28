@@ -366,3 +366,5 @@
       - audit
       - rule_6.1.13
       - permissions
+
+# sed -i 's|( cd "\$BASEDIR/Linux (x86_64)" &&  rpm --upgrade --oldpackage --verbose --hash managesoft-*.x86_64.rpm ) || ret=1|( cd "\$BASEDIR/Linux (x86_64)" && dpkg -i  managesoft_*_amd64.deb ) || ret=1|' your_file
