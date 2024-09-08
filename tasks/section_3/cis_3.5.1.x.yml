@@ -176,3 +176,14 @@
       - patch
       - rule_3.5.1.7
       - ufw
+
+# Add the UFW enable task
+- name: "Enable UFW"
+  ansible.builtin.command:
+    cmd: ufw enable
+  tags:
+    - level1-server
+    - level1-workstation
+    - automated
+    - patch
+    - ufw
