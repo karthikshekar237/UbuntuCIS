@@ -53,6 +53,24 @@
       - rule_3.5.1.3
       - ufw
 
+# Allow all inbound and outbound traffic
+- name: "Allow all inbound and outbound traffic"
+  block:
+    - name: "Set default allow incoming policy"
+      ansible.builtin.command:
+        cmd: ufw default allow incoming
+      notify: Reload ufw
+
+    - name: "Set default allow outgoing policy"
+      ansible.builtin.command:
+        cmd: ufw default allow outgoing
+      notify: Reload ufw
+
+    - name: "Allow all traffic"
+      ansible.builtin.command:
+        cmd: ufw allow from any to any
+      notify: Reload ufw
+
 - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured"
   block:
       - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set allow in ufw rules"
