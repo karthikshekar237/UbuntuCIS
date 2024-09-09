@@ -71,6 +71,31 @@
         cmd: ufw allow from any to any
       notify: Reload ufw
 
+# Allow inbound and outbound traffic on ports 3128 and 8080 from everywhere
+- name: "Allow in and out traffic on port 3128"
+  block:
+    - name: "Allow inbound traffic on port 3128"
+      ansible.builtin.command:
+        cmd: ufw allow in 3128
+      notify: Reload ufw
+
+    - name: "Allow outbound traffic on port 3128"
+      ansible.builtin.command:
+        cmd: ufw allow out 3128
+      notify: Reload ufw
+
+- name: "Allow in and out traffic on port 8080"
+  block:
+    - name: "Allow inbound traffic on port 8080"
+      ansible.builtin.command:
+        cmd: ufw allow in 8080
+      notify: Reload ufw
+
+    - name: "Allow outbound traffic on port 8080"
+      ansible.builtin.command:
+        cmd: ufw allow out 8080
+      notify: Reload ufw
+
 - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured"
   block:
       - name: "3.5.1.4 | PATCH | Ensure loopback traffic is configured | Set allow in ufw rules"
