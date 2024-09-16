@@ -230,3 +230,76 @@
     - automated
     - patch
     - ufw
+-------
+
+name: ConfigureUFW
+description: Configure UFW to secure the system.
+schemaVersion: 1.0
+
+phases:
+  - name: build
+    steps:
+      - name: UpdateSystem
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -x
+
+              echo "Updating the system"
+              DEBIAN_FRONTEND=noninteractive apt-get -y update
+              DEBIAN_FRONTEND=noninteractive apt-get -y upgrade
+
+      - name: EnableUFW
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -x
+
+              echo "Enabling UFW"
+              ufw --force enable
+
+      - name: AllowInboundSSH
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -x
+
+              echo "Allow incoming connections on port 22 (SSH)"
+              ufw allow 22
+
+      - name: AllowOutboundConnections
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -x
+
+              echo "Allow outbound connections on ports 53 (DNS), 443 (HTTPS), 123 (NTP), 8080 (HTTP), and 3128 (HTTP Proxy)"
+              ufw allow out 53
+              ufw allow out 443
+              ufw allow out 123
+              ufw allow out 8080
+              ufw allow out 3128
+
+      - name: VerifyUFW
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -x
+
+              echo "Verifying UFW status"
+              ufw status verbose
+
+      - name: validate
+        steps:
+          - name: validate
+            action: ExecuteBash
+            inputs:
+              commands:
+                - |
+                  echo "Validating UFW configuration"
+                  ufw status
