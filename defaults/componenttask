@@ -1,0 +1,49 @@
+- name: "InstallNTPandChrony"
+  action: "ExecuteBash"
+  inputs:
+    commands:
+      - |
+        echo "Installing NTP and Chrony"
+        sudo apt-get update
+        sudo apt-get -y install ntp chrony
+
+- name: "ConfigureNTP"
+  action: "ExecuteBash"
+  inputs:
+    commands:
+      - |
+        echo "Configuring NTP"
+        cat << EOF | sudo tee /etc/ntp.conf
+        restrict -4 default kod nomodify notrap nopeer noquery
+        restrict -6 default kod nomodify notrap nopeer noquery
+        restrict 127.0.0.1
+        restrict ::1
+        server time.google.com iburst
+        EOF
+
+- name: "ConfigureChrony"
+  action: "ExecuteBash"
+  inputs:
+    commands:
+      - |
+        echo "Configuring Chrony"
+        sudo sed -i 's/pool 2.debian.pool.ntp.org iburst/# pool 2.debian.pool.ntp.org iburst/' /etc/chrony/chrony.conf
+        echo "server time.google.com iburst" | sudo tee -a /etc/chrony/chrony.conf
+
+- name: "EnableNTPService"
+  action: "ExecuteBash"
+  inputs:
+    commands:
+      - |
+        echo "Enabling and starting NTP service"
+        sudo systemctl enable ntp
+        sudo systemctl start ntp
+
+- name: "EnableChronyService"
+  action: "ExecuteBash"
+  inputs:
+    commands:
+      - |
+        echo "Enabling and starting Chrony service"
+        sudo systemctl enable chrony
+        sudo systemctl start chrony
